@@ -218,17 +218,18 @@ File: `tools/eron.py` (semua-dalam-satu; CLI + panel). Versi Node yang lebih lam
 | `ssh` | buka/matikan SSH (pkexec; dialog di desktop host) |
 | `run` | perintah shell bebas di host (akses penuh) |
 
-Endpoint: `http://<ip-tailscale-host>:8799/<token>/mcp` — token acak otomatis di `/.mcp-token` (gitignored). Akses via tailnet/LAN yang tahu token; tidak terekspos publik.
+Endpoint (HTTPS, sertifikat Let's Encrypt otomatis dari Tailscale `serve`): `https://user-gio.tail8dc03e.ts.net/<token>/mcp` — token acak otomatis di `/.mcp-token` (gitignored). Endpoint internal `:8799` tetap HTTP untuk localhost; **akses luar lewat HTTPS tailnet (bukan internet publik)**.
 
 ```bash
 tools/.venv-mcp/bin/python tools/eron-mcp.py     # nyalakan (atau tombol panel "MCP server up")
 ERON_MCP_PORT=9000 ...                           # port lain
+tailscale serve --bg 8799                        # pasang HTTPS tailnet (sekali; operator=gio set)
 ```
 
-**Claude Desktop** (Settings → Connectors → *Add custom connector* → paste URL di atas) atau `claude_desktop_config.json` — hidup tokennya-nya:
+**Claude Desktop** (Settings → Connectors → *Add custom connector* → paste URL di atas) atau `claude_desktop_config.json`. Catatan: hostname HTTP pola `http://…` akan ditolak Claude — selalu gunakan URL HTTPS.
 
 ```json
-{"mcpServers": {"eron": {"command": "npx", "args": ["-y", "mcp-remote", "http://100.95.215.58:8799/<TOKEN>/mcp"]}}}
+{"mcpServers": {"eron": {"command": "npx", "args": ["-y", "mcp-remote", "https://user-gio.tail8dc03e.ts.net/<TOKEN>/mcp"]}}}
 ```
 
-**Claude Code**: `claude mcp add eron --transport http "http://100.95.215.58:8799/<TOKEN>/mcp"`.
+**Claude Code**: `claude mcp add eron --transport http "https://user-gio.tail8dc03e.ts.net/<TOKEN>/mcp"`.

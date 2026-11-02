@@ -43,6 +43,37 @@ PORT = int(__import__("os").environ.get("ERON_MCP_PORT", "8799"))
 
 from mcp.server.fastmcp import FastMCP  # noqa: E402
 
+# ── Wihtelist Host: default FastMCP hanya 127.0.0.1 — perluas nama MagicDNS node ──
+import re as _re  # noqa: E402
+import subprocess as _sp  # noqa: E402
+import mcp.server.transport_security as _ts  # noqa: E402
+
+
+def _node_dns_name():
+    try:
+        out = _sp.run(["tailscale", "status", "--json"], capture_output=True, text=True, timeout=10).stdout
+        dns = (_re.search(r'"DNSName"\s*:\s*"([^"]+)"', out) or [None, None])[1]
+        return (dns or "").rstrip(".")
+    except Exception:
+        return ""
+
+
+_TS_NAME = _node_dns_name()
+_orig_ts_init = _ts.TransportSecuritySettings.__init__
+
+
+def _ts_init(self, *a, **kw):
+    _orig_ts_init(self, *a, **kw)
+    extra = ["localhost", "127.0.0.1", "[::1]", "::1"]
+    if _TS_NAME:
+        extra += [_TS_NAME, f"{_TS_NAME}:*"]
+    for h in extra:
+        if h not in (self.allowed_hosts or []):
+            self.allowed_hosts.append(h)
+
+
+_ts.TransportSecuritySettings.__init__ = _ts_init
+
 mcp = FastMCP("eron")
 mcp.settings.host = "0.0.0.0"
 mcp.settings.port = PORT
