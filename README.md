@@ -173,21 +173,29 @@ npx tsx scripts/db-smoke.ts  # smoke test db
 - **Upload**: dicek magic-bytes, disanitasi nama & path, dikompres sharp, disajikan lewat route handler `/uploads/[...]` (aman untuk Docker/standalone).
 - **Realtime**: notifikasi in-app dengan polling ringan; Pusher/Socket.io mudah ditambahkan di badge + list (lib~10 LOC).
 
-## 9. Tools utilitas — panel GUI & CLI
+## 9. Tools utilitas — Python (GUI + CLI)
 
-Kontrol server tanpa mengetik manual: panel web lokal di **http://127.0.0.1:7777** (`npm run panel`) dengan tombol **Mulai / Matikan / Restart**, indikator status + uptime, health check rute, viewer log (`server.log`, `docker-compose.log`, `build.log`), dan tombol utilitas: `prisma migrate status/deploy`, seed, smoke test DB, typecheck, `next build`, serta docker `up/build/down/logs`.
+Utilitas kontrol server berbasis **Python 3** (stdlib saja, tanpa `pip install`). Tools ini punya siklus hidup sendiri: perintah **start** untuk menyalakan, **stop** untuk mematikan.
 
 ```bash
-npm run panel          # buka http://127.0.0.1:7777 (bind 127.0.0.1 saja)
-ERON_PANEL_PORT=8000 npm run panel   # port panel lain
-
-npm run ctl status     # status server lokal + kontainer Eron
-npm run ctl start      # nyalakan next start (detached, log → logs/server.log)
-npm run ctl stop       # matikan server lokal
-npm run ctl restart
-npm run ctl logs [--source server|docker|build]
-npm run ctl health     # probe rute utama + latensi
-npm run ctl open       # buka http://localhost:3000 di browser
+python3 tools/eron.py start    # nyalakan → panel GUI di http://127.0.0.1:7777 (daemon)
+python3 tools/eron.py stop     # matikan tools
+python3 tools/eron.py restart
+python3 tools/eron.py status   # status web + kontainer Eron (JSON)
 ```
 
-Detail teknis: `tools/serverctl.mjs` (pustaka + CLI), `tools/panel.mjs` (GUI, tanpa dependensi). Port app bisa diarahkan lewat argumen `--port` / kolom *Port* di panel; `logs/` dan `.server.pid` di-gitignore.
+Alias npm: `npm run tools:start`, `npm run tools:stop`, `npm run tools:status`, atau `npm run tool -- <perintah>`.
+
+**Panel GUI** (`http://127.0.0.1:7777`, hanya bind localhost) berisi: tombol **Mulai/Matikan/Restart** server, status + uptime, health check rute, viewer log (`server.log`, `docker-compose.log`, `build.log`), dan tombol utilitas: `prisma migrate status/deploy`, seed, smoke test DB, typecheck, `next build`, docker `up/build/down/logs`. Guard keamanan: panel tidak akan mematikan port yang sedang dipakai stack Docker, dan tak bisa membunuh dirinya sendiri lewat tombol.
+
+Perintah yang dieksekusi tools langsung dari CLI:
+
+```bash
+python3 tools/eron.py server-start [--port 3000]   # nyalakan web lokal (node next start, detached)
+python3 tools/eron.py server-stop
+python3 tools/eron.py server-restart
+python3 tools/eron.py logs [--source server|docker|build|panel] [--lines 100]
+python3 tools/eron.py health     # probe rute utama + latensi
+```
+
+File: `tools/eron.py` (semua-dalam-satu; CLI + panel). Versi Node yang lebih lama tetap ada di `tools/panel.mjs` + `tools/serverctl.mjs` sebagai alternatif (`npm run ctl …`). `logs/`, `.server.pid`, `.panel.pid` di-gitignore.
