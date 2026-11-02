@@ -23,6 +23,11 @@ services:
       dockerfile: Dockerfile
       target: runner
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     ports:
       - "3000:3000"
     environment:
@@ -44,6 +49,12 @@ services:
       # Persist user uploads across container restarts
       - uploads:/app/public/uploads
     command: node server.js
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/api/health >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
   postgres:
     image: postgres:16-alpine

@@ -238,3 +238,27 @@ Keduanya memakai sertifikat Let's Encrypt `user-gio.tail8dc03e.ts.net` otomatis.
 ```
 
 **Claude Code**: `claude mcp add eron --transport http "https://user-gio.tail8dc03e.ts.net/<TOKEN>/mcp"`.
+
+## 11. Vault "AVORIS" — rahasia tersegel (Argon2id + Blengi-20 + AES-256-GCM)
+
+`tools/eron-vault.py` (venv: `tools/.venv-vault/`) meracik enkripsi own-layers:
+
+- **KDF**: Argon2id (64 MiB, t=4, salt acak per envelope) → `K_prf` + `K_aes`
+- **Lapisan 1 "Blengi-20"**: stream-cipher racikan sendiri (SHA-256 berantai `s_i = SHA256(s_{i-1}‖ctr‖K_prf)`) — XOR
+- **Lapisan 2**: AES-256-GCM, AAD = header envelope → pemalsuan byte apa pun = gagal
+- **Ikat-mesin**: password KDF = fingerprint (machine-id‖host‖user‖folder proyek) —
+  `.eron-vault.bin` dipindah ke mesin lain → **TIDAK terbuka** (clone/copy = mati).
+- `--with-pass` menambah `.eron-vault.pass.bin` (passphrase harus diketik, tak pernah disimpan)
+  → salinan pemulihan lintas-mesin. **Passphrase hilang = salinan itu tak berguna** (envelope mesin tetap bisa).
+
+Otomatis: `tools start` → *unseal* (pulihkan `.env`, `.mcp-token` 0600), `tools stop` → *seal* (segarkan vault + sobek teks-asli), `docker:up/build` juga auto-unseal. Matikan perilaku: `export ERON_VAULT_DISABLE=1`.
+
+```bash
+tools/.venv-vault/bin/python tools/eron-vault.py status   # tanpa mengintip isi
+tools/.venv-vault/bin/python tools/eron-vault.py seal --keep   # segel tanpa sobek
+tools/.venv-vault/bin/python tools/eron-vault.py guard    # tenggelamkan kode tools/erd/eron*.py
+```
+
+**"EROND" (guard)**: hasil `guard` di `tools/guard/` — `eron_g.bin` = marshal(erone+eron-mcp) yang di-xor Blengi-20 lalu AES-GCM ikat-mesin; `eron-cli.py` / `eron-mcpg.py` = loader ±100 baris **tanpa kodi sumber**. Jalankan: `tools/.venv-mcp/bin/python tools/guard/eron-cli.py start`, MCP: `ERON_MCP_PORT=8799 tools/.venv-mcp/bin/python tools/guard/eron-mcpg.py`. Menyalin hasil guard ke mesin lain → kunci argon2 salah → **GCM gagal, kode mati**.
+
+> Jujur tentang batas: **rahasia** yang tenggelam di vault aman matematika — tanpa kunci tidak bisa direkayasa balik; **kode** yang tenggelam EROND menaikkan biaya pemecahan dari "baca berkas" → "turun-mesin + dump saat-proses pada mesin ini sendiri" (root lokal selalu bisa dump memori proses — tak ada skema kode yang mana mungkin lebih). Kombinasi = informasi penting tidak muncul sebagai teks-asli di disk/repo/backup, dan tidak berguna bila berkasnya dicuri dari folder/PC lain.

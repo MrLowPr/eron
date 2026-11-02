@@ -58,8 +58,8 @@ TASKS = {
     "db:deploy":    {"label": "Prisma migrate deploy",       "cmd": ["npx", ["prisma", "migrate", "deploy"]]},
     "db:seed":      {"label": "Seed data demo",              "cmd": ["npm", ["run", "db:seed"]]},
     "smoke":        {"label": "Smoke test DB",               "cmd": ["npx", ["tsx", "scripts/db-smoke.ts"]]},
-    "docker:up":    {"label": "Docker compose up -d --build","cmd": ["docker", ["compose", "up", "-d", "--build"]], "log": "docker"},
-    "docker:build": {"label": "Docker compose build",        "cmd": ["docker", ["compose", "build", "app", "migrate"]], "log": "docker"},
+    "docker:up":    {"label": "Docker compose up -d --build","cmd": ["sh", ["-c", "tools/.venv-vault/bin/python tools/eron-vault.py unseal >/dev/null 2>&1 || true; docker compose up -d --build"]], "log": "docker"},
+    "docker:build": {"label": "Docker compose build",        "cmd": ["sh", ["-c", "tools/.venv-vault/bin/python tools/eron-vault.py unseal >/dev/null 2>&1 || true; docker compose build app migrate"]], "log": "docker"},
     "docker:down":  {"label": "Docker compose down",         "cmd": ["docker", ["compose", "down"]], "log": "docker"},
     "docker:logs":  {"label": "Docker compose logs (tail)",  "cmd": ["sh", ["-c", "docker compose logs --tail 150 > logs/docker-compose.log 2>&1; tail -150 logs/docker-compose.log"]], "log": "docker"},
     "mcp:up":       {"label": "MCP server (Claude) up",      "cmd": ["sh", ["-c", "unset DISPLAY DBUS_SESSION_BUS_ADDRESS XDG_RUNTIME_DIR; setsid tools/.venv-mcp/bin/python tools/eron-mcp.py >>logs/mcp.log 2>&1 </dev/null & sleep 1.5; echo MCP-up"]]},
@@ -544,6 +544,21 @@ def run_task(type_):
 
 # ────────────────────────── tools: start/stop dirinya ──────────────────────────
 
+def _vault(action):
+    """AVORIS hook: unseal saat start, seal saat stop — best-effort, tidak pernah blokir."""
+    try:
+        if os.environ.get("ERON_VAULT_DISABLE"):
+            return None
+        vp = os.path.join(HERE, ".venv-vault", "bin", "python")
+        if not os.path.exists(vp):
+            return None
+        r = subprocess.run([vp, os.path.join(HERE, "eron-vault.py"), action],
+                           cwd=APP_DIR, capture_output=True, text=True, timeout=120)
+        return ((r.stdout or "") + (r.stderr or "")).strip()[:200]
+    except Exception:
+        return None
+
+
 def start_tools(port=None):
     port = int(port or PANEL_PORT)
     # stop sisa instance lama (pidfile / port)
@@ -575,9 +590,11 @@ def start_tools(port=None):
     if killed:
         time.sleep(0.5)
 
+    vault = _vault("unseal")
+
     if _panel_http_healthy(port):
         return {"ok": True, "url": f"http://127.0.0.1:{port}", "reused": True,
-                "note": f"instance sebelumnya masih hidup; URL {port}"}
+                "note": f"instance sebelumnya masih hidup; URL {port}", "vault": vault}
 
     mkdir_logs()
     logf = open(LOG_FILES["panel"], "ab")
@@ -591,7 +608,8 @@ def start_tools(port=None):
     deadline = time.time() + 10
     while time.time() < deadline:
         if _panel_http_healthy(port):
-            return {"ok": True, "pid": p.pid, "url": f"http://127.0.0.1:{port}", "killed": killed}
+            return {"ok": True, "pid": p.pid, "url": f"http://127.0.0.1:{port}",
+                    "killed": killed, "vault": vault}
         if not pid_alive(p.pid):
             return {"ok": False, "err": "proses tools mati saat mulai; cek logs/panel.log"}
         time.sleep(0.3)
@@ -651,7 +669,9 @@ def stop_tools():
     except OSError:
         pass
     alive_left = sorted({p for p in killed if pid_alive(p)})
-    return {"ok": not alive_left, "stopped": sorted(set(killed)), "still_alive": alive_left}
+    vault = _vault("seal")  # AVORIS: kunci balik rahasia saat semua berhenti
+    return {"ok": not alive_left, "stopped": sorted(set(killed)), "still_alive": alive_left,
+            "vault": vault}
 
 # ────────────────────────── HTTP server (panel GUI) ──────────────────────────
 

@@ -55,5 +55,7 @@ next-env.d.ts
 
 # venv MCP (kredensial & dependensi besar)
 /tools/.venv-mcp/
+/tools/.venv-vault/
+/tools/guard/
 # pyc cache
 __pycache__/
