@@ -404,8 +404,34 @@ def ssh_status():
         "password_auth": _sshd_cfg("PasswordAuthentication") or "yes (default)",
         "root_login": _sshd_cfg("PermitRootLogin") or "prohibit-password (default)",
         "addrs": [{"addr": a, "kind": _classify_addr(a)} for a in host_ips.split()],
+        "tailscale": _tailscale_state(),
+        "fw": _fw_state(port),
         "backend": "pkexec",
     }
+
+
+def _tailscale_state():
+    st = {"service": None, "ip": None}
+    code, out = sysrun(["sh", "-c", "systemctl is-active tailscaled 2>/dev/null"], timeout=8)
+    st["service"] = out.strip() or ("tidak-terpasang" if code == 4 else None)
+    code, out = sysrun(["sh", "-c", "tailscale ip -4 2>/dev/null"], timeout=10)
+    ip4 = (out or "").strip().splitlines()
+    first = (ip4[0].strip() if ip4 and ip4[0].strip() else None)
+    if first and " " not in first and "." in first:
+        st["ip"] = first
+    return st
+
+
+def _fw_state(port=22):
+    if not shutil.which("ufw"):
+        return {"installed": False, "active": False, "rule22": None}
+    code, out = sysrun(["sh", "-c", "ufw status | grep -i '^Status' || echo 'Status: inactive'"], timeout=10)
+    active = "active" in (out or "").lower() and "inactive" not in (out or "").lower()
+    rule22 = None
+    if active:
+        code, out2 = sysrun(["sh", "-c", "ufw status | grep -E '\\b" + str(port) + "\\b' || true"], timeout=10)
+        rule22 = bool((out2 or "").strip())
+    return {"installed": True, "active": active, "rule22": rule22}
 
 
 def ssh_ctl(action):
@@ -414,14 +440,24 @@ def ssh_ctl(action):
     if not ssh_installed():
         return {"ok": False, "note": "openssh-server belum terpasang — jalankan: sudo apt-get install -y openssh-server"}
     before = ssh_active()
-    if action == "start" and before:
-        return {"ok": True, "active": True, "note": "SSH sudah aktif"}
+    if action == "start":
+        ts0 = _tailscale_state()
+        if before and bool(ts0.get("ip")):
+            return {"ok": True, "active": True, "note": "SSH & Tailscale sudah aktif"}
     if action == "stop" and not before:
         return {"ok": True, "active": False, "note": "SSH sudah tidak aktif"}
 
     if action == "start":
-        shcmd = ("systemctl start ssh.service 2>/dev/null || systemctl start sshd.service 2>/dev/null; exit 0")
+        # Rantai lengkap: tailscaled → tailscale up → ufw 22 → sshd (semua idempotent)
+        shcmd = (
+            "systemctl start tailscaled.service 2>/dev/null || true\n"
+            "sleep 1\n"
+            "tailscale up 2>/dev/null || true\n"
+            "if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -qi 'active'; then ufw allow 22/tcp >/dev/null 2>&1 || true; fi\n"
+            "systemctl start ssh.service 2>/dev/null || systemctl start sshd.service 2>/dev/null"
+        )
     else:
+        # Matikan **hanya** sshd — Tailscale tetap hidup (hanya komunikasi SSH yang ditutup)
         shcmd = "systemctl stop ssh.service ssh.socket sshd.service 2>/dev/null; exit 0"
 
     if os.geteuid() == 0:
@@ -430,18 +466,24 @@ def ssh_ctl(action):
         pk = shutil.which("pkexec")
         if not pk:
             return {"ok": False, "note": "pkexec tidak tersedia di sistem ini"}
-        cmd, extra = [pk, "sh", "-c", shcmd], _desktop_env()
+        cmd, extra = ["pkexec", "sh", "-c", shcmd], _desktop_env()
 
     code, out = sysrun(cmd, timeout=180, extra_env=extra)
     time.sleep(1.2)
     now = ssh_active()
-    ok = now if action == "start" else (not now)
+    ts = _tailscale_state()
+    ok_main = now if action == "start" else (not now)
+    ok = ok_main and (action != "start" or bool(ts["ip"]))
     note = None
     if not ok:
-        note = ("dialog polkit hanya muncul di desktop — jawab di sana (password admin); "
-                "jika gagal/tolak/timeout, SSH tidak berubah. " + (f"[pkexec exit {code}] {out[-300:]}" if code else ""))
-    return {"ok": bool(ok), "active": now, "action": action, "code": code, "out": (out or "")[-500:],
-            "note": note}
+        bits = []
+        if action == "start" and not now: bits.append("sshd tidak nyala")
+        if action == "start" and not ts.get("ip"): bits.append("tailscale belum dapat IP")
+        note = ("dialog polkit muncul di desktop — jawab dengan password admin klarifikasi; "
+                "jika gagal/tolak/timeout, sistem tidak berubah. Rincian: " + ", ".join(bits) +
+                (f" [pkexec exit {code}] {out[-200:]}" if code not in (0, None) else ""))
+    return {"ok": bool(ok), "active": now, "action": action, "code": code, "tailscale": ts,
+            "out": (out or "")[-500:], "note": note}
 
 # ────────────────────────── runner tugas ──────────────────────────
 
@@ -768,7 +810,7 @@ a{color:var(--acc);text-decoration:none}
     <div class="row">
       <button class="btn go" id="b-ssh-open">🔓 Buka SSH</button>
       <button class="btn no" id="b-ssh-close">🔒 Matikan SSH</button>
-      <span class="muted">dialog password polkit muncul di desktop saat aksi</span>
+      <span class="muted">Buka = tailscaled + tailscale up + ufw 22 + sshd (dialog polkit di desktop)</span>
     </div>
     <table id="sshinfo" style="margin-top:8px"></table>
     <pre id="sshhint" style="max-height:150px"></pre>
@@ -836,6 +878,10 @@ async function sshPoll(){
     t+='<tr><td>Port</td><td>'+s.port+(s.listening?' (listen)':' (tidak listen)')+'</td></tr>';
     t+='<tr><td>User</td><td>ssh '+s.user+'@'+s.host+' &nbsp;(sudo → akses penuh)</td></tr>';
     t+='<tr><td>Auth</td><td>password: '+s.password_auth+' &nbsp;•&nbsp; root: '+s.root_login+'</td></tr>';
+    const ts=s.tailscale||{};
+    t+='<tr><td>Tailscale</td><td>'+(ts.servis||'?')+(ts.ip?' (IP '+ts.ip+')':' (tanpa IP)')+'</td></tr>';
+    const fw=s.fw||{};
+    t+='<tr><td>Firewall ufw</td><td>'+(!fw.installed?'tidak terpasang':(fw.active?(fw.rule22?'aktif • port 22 terbuka':'aktif • port 22 tertutup'):'tidak aktif'))+'</td></tr>';
     t+='<tr><td>Alamat</td><td>'+s.addrs.map(a=>'<span class="chip">'+a.kind+' '+a.addr+'</span>').join(' ')+'</td></tr>';
     $('#sshinfo').innerHTML=t;
     if(s.active){
