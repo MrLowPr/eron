@@ -62,6 +62,8 @@ TASKS = {
     "docker:build": {"label": "Docker compose build",        "cmd": ["docker", ["compose", "build", "app", "migrate"]], "log": "docker"},
     "docker:down":  {"label": "Docker compose down",         "cmd": ["docker", ["compose", "down"]], "log": "docker"},
     "docker:logs":  {"label": "Docker compose logs (tail)",  "cmd": ["sh", ["-c", "docker compose logs --tail 150 > logs/docker-compose.log 2>&1; tail -150 logs/docker-compose.log"]], "log": "docker"},
+    "mcp:up":       {"label": "MCP server (Claude) up",      "cmd": ["sh", ["-c", "unset DISPLAY DBUS_SESSION_BUS_ADDRESS XDG_RUNTIME_DIR; setsid tools/.venv-mcp/bin/python tools/eron-mcp.py >>logs/mcp.log 2>&1 </dev/null & sleep 1.5; echo MCP-up"]]},
+    "mcp:down":     {"label": "MCP server down",             "cmd": ["sh", ["-c", "pkill -f eron-mcp.py; echo MCP-down"]]},
 }
 
 # ────────────────────────── util aplikasi ──────────────────────────

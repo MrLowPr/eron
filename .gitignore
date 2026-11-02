@@ -51,3 +51,7 @@ next-env.d.ts
 /logs/
 /.server.pid
 /.panel.pid
+/.mcp-token
+
+# venv MCP (kredensial & dependensi besar)
+/tools/.venv-mcp/

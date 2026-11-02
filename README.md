@@ -203,3 +203,32 @@ python3 tools/eron.py health     # probe rute utama + latensi
 Panel punya kartu **SSH**: tombol **🔓 Buka SSH** / **🔒 Matikan SSH** (sama: `python3 tools/eron.py ssh-start`, `ssh-stop`, `ssh-status`). Otorisasi memakai **pkexec** — dialog admin Cinnamon/polkit muncul di desktop; cukup masukkan password sekali per aksi, tidak ada password yang disimpan tools. Statusnya menunjukkan port, user, mode auth (`PasswordAuthentication`, `PermitRootLogin`), dan semua alamat host (LAN, Tailscale, IPv6) beserta contoh perintah `ssh gio@<ip>` saat aktif.
 
 File: `tools/eron.py` (semua-dalam-satu; CLI + panel). Versi Node yang lebih lama tetap ada di `tools/panel.mjs` + `tools/serverctl.mjs` sebagai alternatif (`npm run ctl …`). `logs/`, `.server.pid`, `.panel.pid` di-gitignore.
+
+## 10. MCP server — Claude Desktop / Claude Code / klien MCP lain
+
+`tools/eron-mcp.py` (transport **Streamable HTTP**, FastMCP) menyambungkan klien MCP berisi **tools**:
+
+| Tool | Isi |
+|---|---|
+| `status` | app (lokal/Docker) + SSH/Tailscale/firewall |
+| `server` | start/stop/restart web Eron |
+| `task` | `typecheck` `build` `db:*` `smoke` `docker:*` `mcp:*` |
+| `logs` | baca `server`/`docker`/`build`/`panel` log |
+| `health` | probe rute + latensi |
+| `ssh` | buka/matikan SSH (pkexec; dialog di desktop host) |
+| `run` | perintah shell bebas di host (akses penuh) |
+
+Endpoint: `http://<ip-tailscale-host>:8799/<token>/mcp` — token acak otomatis di `/.mcp-token` (gitignored). Akses via tailnet/LAN yang tahu token; tidak terekspos publik.
+
+```bash
+tools/.venv-mcp/bin/python tools/eron-mcp.py     # nyalakan (atau tombol panel "MCP server up")
+ERON_MCP_PORT=9000 ...                           # port lain
+```
+
+**Claude Desktop** (Settings → Connectors → *Add custom connector* → paste URL di atas) atau `claude_desktop_config.json` — hidup tokennya-nya:
+
+```json
+{"mcpServers": {"eron": {"command": "npx", "args": ["-y", "mcp-remote", "http://100.95.215.58:8799/<TOKEN>/mcp"]}}}
+```
+
+**Claude Code**: `claude mcp add eron --transport http "http://100.95.215.58:8799/<TOKEN>/mcp"`.
