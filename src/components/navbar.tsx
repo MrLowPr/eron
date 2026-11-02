@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { PenSquare, Sparkles } from "lucide-react";
+import { PenSquare, Settings } from "lucide-react";
 import { getViewer } from "@/lib/rbac";
 import { Button } from "@/components/ui/button";
 import { UserMenu } from "@/components/user-menu";
@@ -16,11 +16,24 @@ export async function Navbar() {
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-14 items-center gap-3">
-        <Link href="/" className="flex items-center gap-2 font-bold tracking-tight" aria-label="Eron — beranda">
-          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-fuchsia-500 text-primary-foreground">
-            <Sparkles className="h-4 w-4" />
-          </span>
-          <span className="text-lg">Eron</span>
+        <Link href="/" className="flex items-center" aria-label="Eron, beranda">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/logo/eron-logo-horizontal-terang.svg"
+            alt="Eron"
+            width={152}
+            height={32}
+            className="h-8 w-auto dark:hidden"
+          />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/logo/eron-logo-horizontal-gelap.svg"
+            alt=""
+            aria-hidden="true"
+            width={152}
+            height={32}
+            className="hidden h-8 w-auto dark:block"
+          />
         </Link>
 
         <div className="hidden flex-1 md:block">
@@ -42,6 +55,18 @@ export async function Navbar() {
           {viewer ? (
             <>
               <NotificationBell />
+              {/* Gear "Pengaturan" — placeholder; kegunaan menyusul */}
+              <span title="Pengaturan — segera hadir" className="inline-flex">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  disabled
+                  aria-label="Pengaturan (segera hadir)"
+                  className="rounded-full text-muted-foreground"
+                >
+                  <Settings />
+                </Button>
+              </span>
               <UserMenu viewer={viewer} />
             </>
           ) : (
