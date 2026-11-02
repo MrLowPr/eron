@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Panduan Merek Eron</title>
+<link rel="stylesheet" href="tokens.css">
+<style>
+body{margin:0;font-family:var(--font-ui);background:var(--eron-lav);color:var(--eron-ink);line-height:1.6}
+main{max-width:860px;margin:0 auto;padding:48px 24px 80px}
+h1{font-size:2rem;margin:0 0 8px;color:var(--eron-indigo)} h2{font-size:1.25rem;margin:48px 0 12px;color:var(--eron-indigo)}
+.sw{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.sw div{border-radius:var(--radius-md);padding:48px 12px 12px;font-size:.85rem;box-shadow:inset 0 0 0 1px rgba(20,19,58,.12)}
+.logos{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.logos figure{margin:0;border-radius:var(--radius-md);padding:24px;display:flex;align-items:center;justify-content:center;min-height:110px}
+.logos img{max-width:100%;max-height:90px}
+li{margin:4px 0}
+</style></head><body><main>
+<h1>Panduan Merek Eron</h1>
+<p>Eron adalah komunitas tempat anggota berkumpul, belajar, dan berkarya bersama. Huruf E tersusun dari tiga batang; titik kuning di ujung batang tengah adalah satu anggota yang menonjol di tengah kelompok.</p>
+
+<h2>Warna</h2>
+<div class="sw">
+<div style="background:#2B2A7F;color:#fff">Indigo<br>#2B2A7F<br>utama</div>
+<div style="background:#1C1B5A;color:#fff">Deep<br>#1C1B5A<br>latar gelap</div>
+<div style="background:#14133A;color:#fff">Ink<br>#14133A<br>teks</div>
+<div style="background:#6C6AD6;color:#fff">Mid<br>#6C6AD6<br>sekunder</div>
+<div style="background:#E4E0FF">Soft<br>#E4E0FF<br>kartu, avatar</div>
+<div style="background:#F6F3FF">Lavender<br>#F6F3FF<br>latar halaman</div>
+<div style="background:#FFC93C">Sun<br>#FFC93C<br>aksen</div>
+</div>
+<p>Aksen kuning dipakai hemat: satu titik atau satu elemen penting per layar.</p>
+
+<h2>Logo</h2>
+<div class="logos">
+<figure style="background:#fff"><img src="../logo/eron-logo-horizontal-terang.svg" alt="Logo horizontal, versi terang"></figure>
+<figure style="background:#2B2A7F"><img src="../logo/eron-logo-horizontal-gelap.svg" alt="Logo horizontal, versi gelap"></figure>
+<figure style="background:#fff"><img src="../logo/eron-mark.svg" alt="Ikon Eron"></figure>
+</div>
+<ul>
+<li>Versi terang untuk latar putih atau lavender; versi gelap untuk latar indigo atau foto gelap.</li>
+<li>Sisakan ruang kosong di sekeliling logo sebesar tinggi huruf E pada ikon.</li>
+<li>Lebar minimum logo horizontal 120 px; di bawah itu pakai ikon saja.</li>
+<li>Jangan memutar, meregangkan, mengubah warna di luar palet, atau menambah bayangan.</li>
+<li>Untuk cetak satu warna, pakai <code>eron-mark-hitam</code> atau <code>eron-mark-putih</code>.</li>
+</ul>
+
+<h2>Tipografi</h2>
+<p>Untuk situs, pakai <strong>Plus Jakarta Sans</strong> (gratis di Google Fonts), bobot 400 untuk isi dan 700 untuk judul. Cadangan: font sistem. Gambar sosial di paket ini memakai Carlito Bold/Regular, yang sudah diubah ke bentuk kurva sehingga tidak perlu memasang font.</p>
+
+<h2>Bentuk dan komponen</h2>
+<p>Sudut membulat mengikuti ikon: 8 px (input), 14 px (kartu), 28 px (panel besar). Gunakan lencana peran di <code>web/</code> di samping nama anggota: anggota, moderator, pendiri.</p>
+
+<h2>Cara memakai token CSS</h2>
+<pre><code>&lt;link rel="stylesheet" href="/brand/tokens.css"&gt;
+button { background: var(--eron-indigo); color: var(--eron-lav); border-radius: var(--radius-md); }</code></pre>
+</main></body></html>

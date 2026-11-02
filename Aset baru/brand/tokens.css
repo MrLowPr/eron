@@ -1,0 +1,18 @@
+:root {
+  /* Warna */
+  --eron-indigo: #2B2A7F;   /* utama: latar, tombol, tautan */
+  --eron-deep:   #1C1B5A;   /* latar gelap, hover tombol */
+  --eron-ink:    #14133A;   /* teks pada latar terang */
+  --eron-mid:    #6C6AD6;   /* ikon sekunder, status */
+  --eron-soft:   #E4E0FF;   /* kartu, avatar, pembatas */
+  --eron-lav:    #F6F3FF;   /* latar halaman terang */
+  --eron-sun:    #FFC93C;   /* aksen: satu titik per layar */
+
+  /* Tipografi */
+  --font-ui: "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  /* Bentuk */
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 28px;
+}

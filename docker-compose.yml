@@ -1,0 +1,78 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Eron — Docker Compose: app + migrate + postgres + redis
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  # Jalankan migrasi sekali sebelum app mulai (pakai stage deps yang punya Prisma CLI)
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: deps
+    restart: "no"
+    environment:
+      DATABASE_URL: postgresql://eron:${POSTGRES_PASSWORD:-eronpass}@postgres:5432/eron?schema=public
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: npx prisma migrate deploy
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runner
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://eron:${POSTGRES_PASSWORD:-eronpass}@postgres:5432/eron?schema=public
+      AUTH_SECRET: ${AUTH_SECRET:?AUTH_SECRET is required}
+      AUTH_TRUST_HOST: "true"
+      APP_URL: ${APP_URL:-http://localhost:3000}
+      AUTH_GOOGLE_ID: ${AUTH_GOOGLE_ID:-}
+      AUTH_GOOGLE_SECRET: ${AUTH_GOOGLE_SECRET:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      RESEND_FROM: ${RESEND_FROM:-Eron <onboarding@resend.dev>}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+    volumes:
+      # Persist user uploads across container restarts
+      - uploads:/app/public/uploads
+    command: node server.js
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: eron
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-eronpass}
+      POSTGRES_DB: eron
+    ports:
+      - "${POSTGRES_HOST_PORT:-5433}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U eron -d eron"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    # Optional service: ready for distributed rate limiting / caching.
+    # The app currently rate-limits in-memory or via Upstash REST — see lib/rate-limit.ts.
+
+volumes:
+  postgres_data:
+  redis_data:
+  uploads:
