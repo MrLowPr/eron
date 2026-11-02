@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { PenSquare, Settings } from "lucide-react";
+import { PenSquare } from "lucide-react";
 import { getViewer } from "@/lib/rbac";
 import { Button } from "@/components/ui/button";
 import { UserMenu } from "@/components/user-menu";
+import { GearMenu } from "@/components/gear-menu";
 import { NotificationBell } from "@/components/notification-bell";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { SearchInput } from "@/components/search-input";
@@ -51,22 +52,11 @@ export async function Navbar() {
           </Button>
 
           <ThemeToggle />
+          <GearMenu />
 
           {viewer ? (
             <>
               <NotificationBell />
-              {/* Gear "Pengaturan" — placeholder; kegunaan menyusul */}
-              <span title="Pengaturan — segera hadir" className="inline-flex">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  disabled
-                  aria-label="Pengaturan (segera hadir)"
-                  className="rounded-full text-muted-foreground"
-                >
-                  <Settings />
-                </Button>
-              </span>
               <UserMenu viewer={viewer} />
             </>
           ) : (
