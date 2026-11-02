@@ -7,12 +7,11 @@ WORKDIR /app
 
 # ---------- deps: install + prisma generate ----------
 FROM base AS deps
-# `prisma generate` pada postinstall akan gagal karena prisma/ belum tersedia di sini.
-# Generate dilakukan eksplisit setelah prisma/ disalin.
-ENV PRISMA_SKIP_POSTINSTALL_GENERATE=true
+# Salin schema SEBELUM `npm ci`: postinstall @prisma/client menjalankan
+# `prisma generate` dan butuh prisma/schema.prisma di dalam image.
 COPY package.json package-lock.json* ./
-RUN npm ci
 COPY prisma ./prisma
+RUN npm ci
 RUN npx prisma generate
 
 # ---------- build: next build (standalone) ----------

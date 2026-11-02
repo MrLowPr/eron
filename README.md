@@ -172,3 +172,22 @@ npx tsx scripts/db-smoke.ts  # smoke test db
 - **XSS**: konten dirender sebagai teks React (tidak ada `dangerouslySetInnerHTML`), tautan & mention dikonversi ke `<a>` aman.
 - **Upload**: dicek magic-bytes, disanitasi nama & path, dikompres sharp, disajikan lewat route handler `/uploads/[...]` (aman untuk Docker/standalone).
 - **Realtime**: notifikasi in-app dengan polling ringan; Pusher/Socket.io mudah ditambahkan di badge + list (lib~10 LOC).
+
+## 9. Tools utilitas — panel GUI & CLI
+
+Kontrol server tanpa mengetik manual: panel web lokal di **http://127.0.0.1:7777** (`npm run panel`) dengan tombol **Mulai / Matikan / Restart**, indikator status + uptime, health check rute, viewer log (`server.log`, `docker-compose.log`, `build.log`), dan tombol utilitas: `prisma migrate status/deploy`, seed, smoke test DB, typecheck, `next build`, serta docker `up/build/down/logs`.
+
+```bash
+npm run panel          # buka http://127.0.0.1:7777 (bind 127.0.0.1 saja)
+ERON_PANEL_PORT=8000 npm run panel   # port panel lain
+
+npm run ctl status     # status server lokal + kontainer Eron
+npm run ctl start      # nyalakan next start (detached, log → logs/server.log)
+npm run ctl stop       # matikan server lokal
+npm run ctl restart
+npm run ctl logs [--source server|docker|build]
+npm run ctl health     # probe rute utama + latensi
+npm run ctl open       # buka http://localhost:3000 di browser
+```
+
+Detail teknis: `tools/serverctl.mjs` (pustaka + CLI), `tools/panel.mjs` (GUI, tanpa dependensi). Port app bisa diarahkan lewat argumen `--port` / kolom *Port* di panel; `logs/` dan `.server.pid` di-gitignore.

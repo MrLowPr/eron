@@ -44,5 +44,9 @@ next-env.d.ts
 /public/uploads/*
 !/public/uploads/.gitkeep
 
-# nested separate project (RE in /home/gio/Eron)
+# nested separate project (opencode tooling)
 /opencode-free-provider
+
+# runtime logs & pid milik tools/
+/logs/
+/.server.pid
