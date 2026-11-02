@@ -220,11 +220,16 @@ File: `tools/eron.py` (semua-dalam-satu; CLI + panel). Versi Node yang lebih lam
 
 Endpoint (HTTPS, sertifikat Let's Encrypt otomatis dari Tailscale `serve`): `https://user-gio.tail8dc03e.ts.net/<token>/mcp` — token acak otomatis di `/.mcp-token` (gitignored). Endpoint internal `:8799` tetap HTTP untuk localhost; **akses luar lewat HTTPS tailnet (bukan internet publik)**.
 
+Endpoint publik (untuk Claude Desktop custom connector — **dicek dari server cloud Anthropic**, bukan dari perangkat lokal, jadi harus terjangkau dari internet):
+
 ```bash
-tools/.venv-mcp/bin/python tools/eron-mcp.py     # nyalakan (atau tombol panel "MCP server up")
-ERON_MCP_PORT=9000 ...                           # port lain
-tailscale serve --bg 8799                        # pasang HTTPS tailnet (sekali; operator=gio set)
+tailscale funnel --bg 8799     # HTTPS publik via edge Funnel (token tetap syarat)
+tailscale serve --bg 8799      # HTTPS tailnet-only (klien lokal/Tailscale)
+tailscale funnel --https=443 off   # matikan jalur publik kapan pun
+tailscale serve --https=443 off    # matikan jalur tailnet
 ```
+
+Keduanya memakai sertifikat Let's Encrypt `user-gio.tail8dc03e.ts.net` otomatis. Jalur publik Funnel dilindungi **token acak 24-char** di path (`/<token>/mcp`) — tanpa token, request lain hanya 404.
 
 **Claude Desktop** (Settings → Connectors → *Add custom connector* → paste URL di atas) atau `claude_desktop_config.json`. Catatan: hostname HTTP pola `http://…` akan ditolak Claude — selalu gunakan URL HTTPS.
 
