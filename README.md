@@ -6,6 +6,56 @@ Eron adalah **platform komunitas full-stack** — feed dengan vote, komentar ber
 
 ---
 
+## 0. Peta proyek — tempat berkas penting & cara mengedit sendiri
+
+```
+Eron/
+├─ src/                     ← ⭐ SEMUA KODE APLIKASI (mulai dari sini)
+│  ├─ app/                  halaman = folder (App Router): isi file page.tsx sesuai rute
+│  │  ├─ page.tsx           beranda/feed
+│  │  ├─ (auth)/login       halaman login      ├ post/   detail & buat post
+│  │  ├─ u/[username]       profil publik      ├ admin/  dashboard moderasi
+│  │  └─ settings, search, kategori, tag, notifications, privasi, syarat, about
+│  ├─ components/           komponen UI; ui/ = kit Shadcn (hati-hati: dipakai banyak tempat)
+│  ├─ lib/                  utilitas (rbac, utils, image, rate-limit…)
+│  └─ server/               actions/ = aksi tulis (form) · queries/ = aksi baca (data)
+├─ prisma/schema.prisma     ⭐ tabel database + relasi
+├─ tools/                   ⭐ kontrol mesin: eron.py (panel+CLI) · eron-mcp.py (Claude) · eron-vault.py (rahasia)
+├─ public/                  aset yang dilayani situs (logo/, uploads/)
+├─ "Aset baru"/             gudang sumber aset merek (favicon/logo/social/web/brand) — sumber ke public/
+├─ logs/                    ✗ log runtime (diabaikan git)
+├─ scripts/                 skrip util DB (db-smoke)
+├─ docker-compose.yml  Dockerfile  .env.example  package.json
+└─ tools/panel.mjs · serverctl.mjs   versi tools Node lama (opsional; pakai eron.py)
+```
+
+**Rumus edit mandiri (biasanya cukup ini):**
+
+| Mau mengubah… | Edit di | Lalu |
+|---|---|---|
+| Tampilan/isi halaman | `src/app/<rute>/page.tsx` ybs. | dev `npm run dev` → langsung hidup; Docker: `docker compose build app && docker compose up -d app` |
+| Kumpulan komponen | `src/components/…` | sama |
+| Warna/tema (terang/gelap) | `src/app/globals.css` + `tailwind.config.ts` | sama |
+| Tabel database | `prisma/schema.prisma` | dev `npm run db:migrate` · prod `npm run db:deploy` + `npm run db:seed` |
+| Aksi tulis (form) | `src/server/actions/…` | — |
+| Aksi baca (daftar/detail) | `src/server/queries/…` | — |
+| Kredensial (.env) | tersegel AVORIS — lih. §11 | `python3 tools/eron.py start` auto-pulih |
+| Halaman 404/empty state | ybs. + `src/app/not-found.tsx` | — |
+
+**Cheat-sheet perintah sehari-hari:**
+
+| Tugas | Perintah |
+|---|---|
+| Detak kesehatan mesin & web | `python3 tools/eron.py status` |
+| Panel GUI (satu tempat semua tombol) | http://127.0.0.1:7777 |
+| Dev lokal | `npm run dev` |
+| Deploy Docker | `docker compose up -d --build` · matikan `docker compose down` |
+| Migrasi & seed | `npm run db:deploy` · `npm run db:seed` |
+| Backup ke GitHub | `git add -A && git commit -m "…" && git push` |
+| Kesehatan rute web | `python3 tools/eron.py health` |
+
+---
+
 ## Fitur
 
 **Autentikasi & akun**
