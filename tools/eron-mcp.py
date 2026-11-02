@@ -134,7 +134,9 @@ def logs(source: str = "server", lines: int = 200) -> str:
 def health() -> str:
     """Proba kesehatan rute utama web Eron + latensi."""
     import json
-    return json.dumps(eron.health(), indent=2)
+    app = eron.app_status()
+    port = app.get("port") or 3000
+    return json.dumps(eron.health(f"http://localhost:{port}"), indent=2)
 
 
 @mcp.tool()

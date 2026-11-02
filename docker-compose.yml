@@ -53,7 +53,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-eronpass}
       POSTGRES_DB: eron
     ports:
-      - "${POSTGRES_HOST_PORT:-5433}:5432"
+      # Bind localhost saja — DB tidak boleh terbuka ke LAN/tailnet (ufw tidak aktif)
+      - "127.0.0.1:${POSTGRES_HOST_PORT:-5433}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -66,7 +67,8 @@ services:
     image: redis:7-alpine
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      # Bind localhost saja — Redis tanpa auth tidak boleh terbuka ke jaringan
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
     # Optional service: ready for distributed rate limiting / caching.
