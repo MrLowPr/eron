@@ -21,9 +21,11 @@ Port panel: env ERON_PANEL_PORT (default 7777). Port app: --port / env ERON_PORT
 
 import json
 import os
+import getpass
 import re
 import shutil
 import signal
+import socket
 import subprocess
 import sys
 import threading
@@ -46,6 +48,7 @@ LOG_FILES = {
 }
 PANEL_PID = os.path.join(APP_DIR, ".panel.pid")
 SERVER_PID = os.path.join(APP_DIR, ".server.pid")
+SSHD_UNITS = ["ssh.service", "sshd.service"]
 HEALTH_ROUTES = ["/", "/login", "/register", "/search", "/api/auth/session"]
 
 TASKS = {
@@ -302,6 +305,144 @@ def env_keys():
     except OSError:
         return []
 
+# ────────────────────────── SSH (pkexec) ──────────────────────────
+
+def sysrun(cmd, timeout=20, extra_env=None):
+    env = dict(os.environ)
+    if extra_env:
+        env.update(extra_env)
+    try:
+        p = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, env=env)
+        return p.returncode, ((p.stdout or "") + (p.stderr or "")).strip()
+    except subprocess.TimeoutExpired as e:
+        out = ((e.stdout or b"").decode("utf-8", "replace")) if not isinstance(e.stdout, str) else (e.stdout or "")
+        return 124, "TIME-OUT menunggu otorisasi polkit"
+    except FileNotFoundError:
+        return 127, f"perintah tidak ditemukan: {cmd[0]}"
+
+
+def _desktop_env():
+    uid = os.getuid()
+    return {
+        "DISPLAY": os.environ.get("DISPLAY") or ":0",
+        "XDG_RUNTIME_DIR": os.environ.get("XDG_RUNTIME_DIR") or f"/run/user/{uid}",
+        "DBUS_SESSION_BUS_ADDRESS": os.environ.get("DBUS_SESSION_BUS_ADDRESS") or f"unix:path=/run/user/{uid}/bus",
+    }
+
+
+def ssh_installed():
+    return os.path.exists("/usr/sbin/sshd") or bool(shutil.which("sshd"))
+
+
+def ssh_active():
+    code, out = sysrun(
+        ["sh", "-c", "systemctl is-active ssh.service 2>/dev/null || systemctl is-active sshd.service 2>/dev/null"],
+        timeout=10)
+    return out == "active"
+
+
+def _sshd_cfg(key, default=None):
+    # sshd: first-match wins; Ubuntu include sshd_config.d di atas → berkas .conf didahulukan
+    files = []
+    try:
+        files += [os.path.join("/etc/ssh/sshd_config.d", f)
+                  for f in sorted(os.listdir("/etc/ssh/sshd_config.d")) if f.endswith(".conf")]
+    except OSError:
+        pass
+    files.append("/etc/ssh/sshd_config")
+    for path in files:
+        try:
+            for line in open(path, encoding="utf-8", errors="replace"):
+                s = line.strip()
+                if s.startswith(key) and (len(s) == len(key) or s[len(key)].isspace()):
+                    return s.split(None, 1)[-1].lower()
+        except OSError:
+            pass
+    return default
+
+
+def _classify_addr(ip):
+    if ip.startswith("100."):
+        return "tailscale"
+    if ip.startswith("fd7a:"):
+        return "tailscale"
+    if ip.startswith("192.168.") or ip.startswith("10."):
+        return "lan"
+    if ip.startswith("172."):
+        return "docker"
+    if ip.startswith("127."):
+        return "lo"
+    if ip.startswith("fe80:"):
+        return "link-local"
+    if ":" in ip:
+        return "ipv6"
+    return "publik"
+
+
+def port_listening(port):
+    code, out = sysrun(["sh", "-c", f"ss -ltn 2>/dev/null | grep -E '(:{int(port)})\\b' || true"], timeout=5)
+    return code == 0 and bool(out.strip())
+
+
+def ssh_status():
+    port = int(_sshd_cfg("Port", None) or 22)
+    try:
+        host_ips = subprocess.run(["hostname", "-I"], capture_output=True, text=True, timeout=5).stdout or ""
+    except Exception:
+        host_ips = ""
+    try:
+        user = os.environ.get("SUDO_USER") or getpass.getuser()
+    except Exception:
+        user = "gio"
+    return {
+        "installed": ssh_installed(),
+        "active": ssh_active(),
+        "port": port,
+        "listening": port_listening(port),
+        "user": user,
+        "host": socket.gethostname(),
+        "password_auth": _sshd_cfg("PasswordAuthentication") or "yes (default)",
+        "root_login": _sshd_cfg("PermitRootLogin") or "prohibit-password (default)",
+        "addrs": [{"addr": a, "kind": _classify_addr(a)} for a in host_ips.split()],
+        "backend": "pkexec",
+    }
+
+
+def ssh_ctl(action):
+    if action not in ("start", "stop"):
+        return {"ok": False, "err": "aksi tak dikenal (start/stop)"}
+    if not ssh_installed():
+        return {"ok": False, "note": "openssh-server belum terpasang — jalankan: sudo apt-get install -y openssh-server"}
+    before = ssh_active()
+    if action == "start" and before:
+        return {"ok": True, "active": True, "note": "SSH sudah aktif"}
+    if action == "stop" and not before:
+        return {"ok": True, "active": False, "note": "SSH sudah tidak aktif"}
+
+    if action == "start":
+        shcmd = ("systemctl start ssh.service 2>/dev/null || systemctl start sshd.service 2>/dev/null; exit 0")
+    else:
+        shcmd = "systemctl stop ssh.service ssh.socket sshd.service 2>/dev/null; exit 0"
+
+    if os.geteuid() == 0:
+        cmd, extra = ["sh", "-c", shcmd], None
+    else:
+        pk = shutil.which("pkexec")
+        if not pk:
+            return {"ok": False, "note": "pkexec tidak tersedia di sistem ini"}
+        cmd, extra = [pk, "sh", "-c", shcmd], _desktop_env()
+
+    code, out = sysrun(cmd, timeout=180, extra_env=extra)
+    time.sleep(1.2)
+    now = ssh_active()
+    ok = now if action == "start" else (not now)
+    note = None
+    if not ok:
+        note = ("dialog polkit hanya muncul di desktop — jawab di sana (password admin); "
+                "jika gagal/tolak/timeout, SSH tidak berubah. " + (f"[pkexec exit {code}] {out[-300:]}" if code else ""))
+    return {"ok": bool(ok), "active": now, "action": action, "code": code, "out": (out or "")[-500:],
+            "note": note}
+
 # ────────────────────────── runner tugas ──────────────────────────
 
 _job = {"id": None, "type": None, "label": None, "running": False, "exit": None,
@@ -518,6 +659,8 @@ class Panel(BaseHTTPRequestHandler):
             return self._json(200, {"source": src, "text": "\n".join(tail_log(src, int(get1("lines", 300))))})
         if u.path == "/api/env":
             return self._json(200, {"keys": env_keys()})
+        if u.path == "/api/ssh":
+            return self._json(200, ssh_status())
         if u.path == "/api/tasks":
             return self._json(200, [{"id": k, "label": v["label"]} for k, v in TASKS.items()])
         self._json(404, {"err": "not found"})
@@ -538,6 +681,8 @@ class Panel(BaseHTTPRequestHandler):
             return self._json(200 if r.get("ok") else 409, r)
         if self.path == "/api/freeport":
             return self._json(200, stop_local_server(body.get("port") or APP_PORT_DEFAULT))
+        if self.path == "/api/ssh":
+            return self._json(200, ssh_ctl(body.get("action") or ""))
         self._json(404, {"err": "not found"})
 
 
@@ -619,6 +764,17 @@ a{color:var(--acc);text-decoration:none}
   </div>
 
   <div class="card">
+    <h2>SSH — akses penuh ke host (pkexec)</h2>
+    <div class="row">
+      <button class="btn go" id="b-ssh-open">🔓 Buka SSH</button>
+      <button class="btn no" id="b-ssh-close">🔒 Matikan SSH</button>
+      <span class="muted">dialog password polkit muncul di desktop saat aksi</span>
+    </div>
+    <table id="sshinfo" style="margin-top:8px"></table>
+    <pre id="sshhint" style="max-height:150px"></pre>
+  </div>
+
+  <div class="card">
     <h2>Utilitas</h2>
     <div class="grid" id="tasks"></div>
     <p class="muted">Basis data, smoke test, typecheck, build. Satu tugas berat berjalan di satu waktu.</p>
@@ -648,6 +804,7 @@ const j=(url,opt)=>fetch(url,opt).then(r=>r.json());
 const PORT=()=>Number($('#port').value)||3000;
 
 async function poll(){
+  sshPoll();
   try{
     const s=await j('/api/status');
     $('#k-st').innerHTML=s.running?'<span class="dot ok"></span>Jalan':'<span class="dot bad"></span>Mati';
@@ -672,6 +829,27 @@ async function poll(){
 async function loadLogs(scroll){
   try{const a=await j('/api/logs?source='+$('#logsrc').value+'&lines=400');$('#log').textContent=a.text||'';if(scroll!==false)$('#log').scrollTop=1e9;}catch{}
 }
+async function sshPoll(){
+  try{
+    const s=await j('/api/ssh');
+    let t='<tr><td>Status</td><td>'+(s.installed?(s.active?'<span class="dot ok"></span>AKTIF':'<span class="dot bad"></span>tidak aktif'):'<span class="dot bad"></span>sshd tidak terpasang')+'</td></tr>';
+    t+='<tr><td>Port</td><td>'+s.port+(s.listening?' (listen)':' (tidak listen)')+'</td></tr>';
+    t+='<tr><td>User</td><td>ssh '+s.user+'@'+s.host+' &nbsp;(sudo → akses penuh)</td></tr>';
+    t+='<tr><td>Auth</td><td>password: '+s.password_auth+' &nbsp;•&nbsp; root: '+s.root_login+'</td></tr>';
+    t+='<tr><td>Alamat</td><td>'+s.addrs.map(a=>'<span class="chip">'+a.kind+' '+a.addr+'</span>').join(' ')+'</td></tr>';
+    $('#sshinfo').innerHTML=t;
+    if(s.active){
+      const hint=s.addrs.filter(a=>a.kind==='lan'||a.kind==='tailscale').map(a=>'ssh '+s.user+'@'+a.addr+'   # '+a.kind).join('\n');
+      $('#sshhint').style.display='';$('#sshhint').textContent=hint||'# alamat host belum terdeteksi';
+    }else{$('#sshhint').style.display='none';}
+  }catch(e){}
+}
+async function sshAct(action){
+  note({note:'[SSH] menunggu dialog polkit di desktop…'});
+  const w=await j('/api/ssh',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action})});
+  note(w.ok&&w.note?{note:'[SSH] '+w.note}:{note:'[SSH] '+(w.ok?'berubah: '+(w.active?'aktif':'tidak aktif'):'gagal — cek dialog polkit')});
+  setTimeout(sshPoll,2500);
+}
 async function srv(action){
   const r=await j('/api/server',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,port:PORT()})});
   note(r);setTimeout(poll,600);
@@ -695,6 +873,8 @@ $('#b-health').onclick=healthNow;
 $('#b-free').onclick=async()=>{const r=await j('/api/freeport',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({port:PORT()})});note(r)};
 $('#b-up').onclick=()=>task('docker:up');$('#b-build').onclick=()=>task('docker:build');$('#b-dn').onclick=()=>task('docker:down');$('#b-dlogs').onclick=()=>task('docker:logs');
 $('#b-log').onclick=()=>loadLogs();
+$('#b-ssh-open').onclick=()=>sshAct('start');
+$('#b-ssh-close').onclick=()=>sshAct('stop');
 $('#logsrc').onchange=()=>loadLogs();
 $('#theme').onchange=e=>document.documentElement.dataset.theme=e.target.value;
 
@@ -757,6 +937,12 @@ def cli(argv):
         print("\n".join(tail_log(strflag("--source", "server"), intflag("--lines", 120))))
     elif cmd == "health":
         print(json.dumps(health(f"http://localhost:{port}"), indent=2))
+    elif cmd == "ssh-status":
+        print(json.dumps(ssh_status(), indent=2))
+    elif cmd == "ssh-start":
+        print(json.dumps(ssh_ctl("start"), indent=2))
+    elif cmd == "ssh-stop":
+        print(json.dumps(ssh_ctl("stop"), indent=2))
     else:
         print(__doc__)
 

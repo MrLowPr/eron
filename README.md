@@ -198,4 +198,8 @@ python3 tools/eron.py logs [--source server|docker|build|panel] [--lines 100]
 python3 tools/eron.py health     # probe rute utama + latensi
 ```
 
+### SSH — akses penuh ke host (pkexec)
+
+Panel punya kartu **SSH**: tombol **🔓 Buka SSH** / **🔒 Matikan SSH** (sama: `python3 tools/eron.py ssh-start`, `ssh-stop`, `ssh-status`). Otorisasi memakai **pkexec** — dialog admin Cinnamon/polkit muncul di desktop; cukup masukkan password sekali per aksi, tidak ada password yang disimpan tools. Statusnya menunjukkan port, user, mode auth (`PasswordAuthentication`, `PermitRootLogin`), dan semua alamat host (LAN, Tailscale, IPv6) beserta contoh perintah `ssh gio@<ip>` saat aktif.
+
 File: `tools/eron.py` (semua-dalam-satu; CLI + panel). Versi Node yang lebih lama tetap ada di `tools/panel.mjs` + `tools/serverctl.mjs` sebagai alternatif (`npm run ctl …`). `logs/`, `.server.pid`, `.panel.pid` di-gitignore.
