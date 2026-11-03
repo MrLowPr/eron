@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
+import { botTrap } from "@/lib/decoy";
 
 const AUTH_COOKIES = ["authjs.session-token", "__Secure-authjs.session-token"];
 
@@ -14,6 +15,11 @@ const needsAuth = ["/settings", "/notifications", "/post/new", "/admin"];
  */
 export async function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
+
+  // ══ ANTI-BOT & UMPAN — semua yang mendarat di sini tidak benar-benar mengakses applikasi ══
+  const trap = botTrap(request);
+  if (trap) return trap;
+
   const hasCookie = AUTH_COOKIES.some((name) => request.cookies.has(name));
 
   const token = hasCookie
@@ -40,17 +46,13 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  return NextResponse.next();
+  const response = NextResponse.next();
+  // header pengecoh di semua respons normal: "reinindex" tak bermakna + fingerprint fiktif
+  response.headers.set("X-Robots-Tag", "noindex, nofollow, noimageindex");
+  response.headers.set("X-Powered-By", "PHP/8.2.28");
+  return response;
 }
 
 export const config = {
-  matcher: [
-    "/login",
-    "/register",
-    "/forgot-password",
-    "/settings/:path*",
-    "/notifications/:path*",
-    "/post/new",
-    "/admin/:path*",
-  ],
+  matcher: ["/((?!_next/static|_next/image).*)"],
 };
