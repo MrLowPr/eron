@@ -249,6 +249,14 @@ def start_local_server(port=None):
             return {"ok": False, "note": "stack Docker sedang aktif di port ini — matikan via Docker dulu"}
         return {"ok": True, "note": f"sudah jalan (pid {st['pid']}, port {port})"}
     mkdir_logs()
+    # ── AVORIS: kalau .env sedang tersegel (akibat stop), pulihkan dulu —
+    # server lokal membaca env saat start (beda dengan Docker yang sudah dibake).
+    if not os.path.exists(os.path.join(APP_DIR, ".env")):
+        vault_py = os.path.join(APP_DIR, "tools", ".venv-vault", "bin", "python")
+        vault_cli = os.path.join(APP_DIR, "tools", "eron-vault.py")
+        if os.path.exists(vault_py) and os.path.exists(vault_cli):
+            subprocess.run([vault_py, vault_cli, "unseal"], cwd=APP_DIR,
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     next_bin = os.path.join(APP_DIR, "node_modules", "next", "dist", "bin", "next")
     if not os.path.exists(next_bin):
         return {"ok": False, "note": "node_modules belum terpasang"}
