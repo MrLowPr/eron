@@ -3,8 +3,10 @@ import {
   FilePlus2,
   Home,
   Inbox,
+  LogIn,
   Settings,
   ShieldCheck,
+  UserPlus,
   UserRound,
 } from "lucide-react";
 
@@ -48,8 +50,16 @@ export function MobileMenu({ viewer }: { viewer: ViewerInfo }) {
           )}
         </>
       ) : (
-        // ══ tautan Login/Daftar disembunyikan dulu — endpoint tetap aktif via URL langsung ══
-        <></>
+        <>
+          <Link href="/login" className="flex items-center gap-3 rounded-md px-2 py-2 text-sm hover:bg-accent">
+            <LogIn className="h-4 w-4 text-muted-foreground" />
+            Login
+          </Link>
+          <Link href="/register" className="flex items-center gap-3 rounded-md px-2 py-2 text-sm hover:bg-accent">
+            <UserPlus className="h-4 w-4 text-muted-foreground" />
+            Daftar
+          </Link>
+        </>
       )}
     </div>
   );

@@ -55,12 +55,20 @@ export async function Navbar() {
           <ThemeToggle />
           <GearMenu />
 
-          {/* ══ LOGIN/DAFTAR — disembunyikan dulu; endpoint tetap aktif via URL langsung ══ */}
-          {viewer && (
+          {viewer ? (
             <>
               <NotificationBell />
               <UserMenu viewer={viewer} />
             </>
+          ) : (
+            <div className="hidden items-center gap-1.5 sm:flex">
+              <Button asChild variant="ghost" size="sm">
+                <Link href="/login">Login</Link>
+              </Button>
+              <Button asChild size="sm">
+                <Link href="/register">Daftar</Link>
+              </Button>
+            </div>
           )}
 
           <MobileNavMenu viewer={viewerInfo} />
