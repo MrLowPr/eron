@@ -4,7 +4,7 @@ import { botTrap } from "@/lib/decoy";
 
 const AUTH_COOKIES = ["authjs.session-token", "__Secure-authjs.session-token"];
 
-const publicOnly = ["/login", "/register", "/forgot-password"];
+const publicOnly = ["/login", "/register", "/forgot-password", "/admin/login"];
 const needsAuth = ["/settings", "/notifications", "/post/new", "/admin"];
 
 /**
@@ -31,7 +31,13 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 
-  if (needsAuth.some((path) => pathname === path || pathname.startsWith(`${path}/`))) {
+  // Portal staf /admin/login harus bisa diakses TANPA sesi (staf memang belum login),
+  // jadi jangan dianggap bagian dari perlindungan /admin/*.
+  const isStaffPortal = pathname === "/admin/login";
+  if (
+    !isStaffPortal &&
+    needsAuth.some((path) => pathname === path || pathname.startsWith(`${path}/`))
+  ) {
     if (!isAuthenticated) {
       const loginUrl = new URL("/login", request.url);
       loginUrl.searchParams.set("callbackUrl", `${pathname}${search}`);
@@ -39,7 +45,7 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  if (pathname === "/admin" || pathname.startsWith("/admin/")) {
+  if (!isStaffPortal && (pathname === "/admin" || pathname.startsWith("/admin/"))) {
     const role = token?.role;
     if (role !== "ADMIN" && role !== "MODERATOR") {
       return NextResponse.redirect(new URL("/", request.url));

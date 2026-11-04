@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { Loader2, LogIn } from "lucide-react";
-import { loginAction } from "@/server/actions/auth";
+import { userLoginAction } from "@/server/actions/user-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,7 +28,7 @@ export function LoginForm({ googleEnabled }: { googleEnabled: boolean }) {
     <form
       className="space-y-4"
       onSubmit={handleSubmit(async (values) => {
-        const result = await loginAction(values);
+        const result = await userLoginAction(values);
         if (result.error) {
           toast.error(result.error);
           return;
