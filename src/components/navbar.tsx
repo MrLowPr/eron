@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Suspense } from "react";
 import { PenSquare } from "lucide-react";
 import { getViewer } from "@/lib/rbac";
 import { Button } from "@/components/ui/button";
@@ -7,7 +6,6 @@ import { UserMenu } from "@/components/user-menu";
 import { GearMenu } from "@/components/gear-menu";
 import { NotificationBell } from "@/components/notification-bell";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { SearchInput } from "@/components/search-input";
 import { MobileNavMenu } from "@/components/mobile-nav-menu";
 
 export async function Navbar() {
@@ -37,11 +35,14 @@ export async function Navbar() {
           />
         </Link>
 
+        {/* ══ SEARCHBAR — disembunyikan dulu (uraikan kembali bila sudah siap) ══
         <div className="hidden flex-1 md:block">
           <Suspense fallback={<div className="h-9 max-w-md" />}>
             <SearchInput />
           </Suspense>
         </div>
+        */}
+        <div className="flex-1" />
 
         <div className="ml-auto flex items-center gap-1.5">
           <Button asChild size="sm" className="hidden sm:inline-flex">
@@ -54,20 +55,12 @@ export async function Navbar() {
           <ThemeToggle />
           <GearMenu />
 
-          {viewer ? (
+          {/* ══ LOGIN/DAFTAR — disembunyikan dulu; endpoint tetap aktif via URL langsung ══ */}
+          {viewer && (
             <>
               <NotificationBell />
               <UserMenu viewer={viewer} />
             </>
-          ) : (
-            <div className="hidden items-center gap-1.5 sm:flex">
-              <Button asChild variant="ghost" size="sm">
-                <Link href="/login">Login</Link>
-              </Button>
-              <Button asChild size="sm">
-                <Link href="/register">Daftar</Link>
-              </Button>
-            </div>
           )}
 
           <MobileNavMenu viewer={viewerInfo} />

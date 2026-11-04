@@ -3,12 +3,9 @@ import {
   FilePlus2,
   Home,
   Inbox,
-  LogIn,
   Settings,
   ShieldCheck,
-  UserPlus,
   UserRound,
-  Search,
 } from "lucide-react";
 
 type ViewerInfo = {
@@ -23,10 +20,7 @@ export function MobileMenu({ viewer }: { viewer: ViewerInfo }) {
         <Home className="h-4 w-4 text-muted-foreground" />
         Beranda
       </Link>
-      <Link href="/search" className="flex items-center gap-3 rounded-md px-2 py-2 text-sm hover:bg-accent">
-        <Search className="h-4 w-4 text-muted-foreground" />
-        Cari
-      </Link>
+      {/* ══ link "Cari" disembunyikan dulu (searchbar juga di-hide di navbar) ══ */}
       <div className="my-1 h-px bg-border" />
       {viewer ? (
         <>
@@ -54,16 +48,8 @@ export function MobileMenu({ viewer }: { viewer: ViewerInfo }) {
           )}
         </>
       ) : (
-        <>
-          <Link href="/login" className="flex items-center gap-3 rounded-md px-2 py-2 text-sm hover:bg-accent">
-            <LogIn className="h-4 w-4 text-muted-foreground" />
-            Login
-          </Link>
-          <Link href="/register" className="flex items-center gap-3 rounded-md px-2 py-2 text-sm hover:bg-accent">
-            <UserPlus className="h-4 w-4 text-muted-foreground" />
-            Daftar
-          </Link>
-        </>
+        // ══ tautan Login/Daftar disembunyikan dulu — endpoint tetap aktif via URL langsung ══
+        <></>
       )}
     </div>
   );
