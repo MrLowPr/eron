@@ -52,7 +52,35 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  const response = NextResponse.next();
+  // ══ CSP nonce per-request — script-src tanpa 'unsafe-inline' ══
+  // Pola resmi Next.js: nonce dikirim via header x-nonce, Next otomatis
+  // menempelkannya ke seluruh <script> bootstrap/hidrasi milik framework;
+  // next-themes menerima nonce yang sama lewat layout. 'strict-dynamic'
+  // mengizinkan chunk yang dimuat oleh skrip ber-nonce (mode dev butuh
+  // 'unsafe-eval' untuk HMR).
+  const nonce = btoa(crypto.randomUUID());
+  const isDev = process.env.NODE_ENV !== "production";
+  const csp = [
+    "default-src 'self'",
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isDev ? " 'unsafe-eval'" : ""}`,
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob: https:",
+    "media-src 'self' data: blob:",
+    "font-src 'self' data:",
+    "connect-src 'self'",
+    "frame-ancestors 'none'",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+  ].join("; ");
+
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-nonce", nonce);
+  requestHeaders.set("Content-Security-Policy", csp);
+
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
+  response.headers.set("Content-Security-Policy", csp);
+
   // header pengecoh di semua respons normal: "reinindex" tak bermakna + fingerprint fiktif
   response.headers.set("X-Robots-Tag", "noindex, nofollow, noimageindex");
   response.headers.set("X-Powered-By", "PHP/8.2.28");

@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { headers } from "next/headers";
 import { SITE } from "@/lib/constants";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
@@ -56,10 +57,13 @@ export const viewport: Viewport = {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const viewer = await getViewer();
+  // Nonce CSP per-request dibangkitkan middleware; Next mengenalinya via header
+  // x-nonce untuk skrip milik framework, next-theme perlu diberi eksplisit.
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
   return (
     <html lang="id" suppressHydrationWarning>
       <body className="min-h-svh bg-background antialiased">
-        <Providers>
+        <Providers nonce={nonce}>
           <div className="flex min-h-svh flex-col">
             <ChromeGate guest={!viewer} variant="top">
               <Navbar />
