@@ -5,7 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { rateLimit } from "@/lib/rate-limit";
 import { notify, notifyMentions } from "@/lib/notifications";
 import { audit } from "@/lib/audit";
-import { requireViewer, type ActionResult } from "@/lib/rbac";
+import { getViewer, requireViewer, type ActionResult } from "@/lib/rbac";
+import { consumeGuestSlot } from "@/lib/guest-quota";
 import { commentSchema } from "@/lib/validations";
 
 export type CommentWithMeta = {
@@ -14,10 +15,22 @@ export type CommentWithMeta = {
 };
 
 export async function createCommentAction(input: unknown): Promise<ActionResult> {
-  const viewer = await requireViewer();
+  // Tamu tanpa sesi ikut defends kuota perangkat (lib/guest-quota) sama seperti
+  // postingan; saat kuota habis, tanggapinya cukup "masuk untuk melanjutkan".
+  const viewer = await getViewer();
+  let authorId: string | null = null;
 
-  const limit = await rateLimit(`comment:user:${viewer.id}`, { limit: 10, window: 60 });
-  if (!limit.success) return { error: "Santai, maksimal 10 komentar per menit" };
+  if (viewer) {
+    const limit = await rateLimit(`comment:user:${viewer.id}`, { limit: 10, window: 60 });
+    if (!limit.success) return { error: "Santai, maksimal 10 komentar per menit" };
+    authorId = viewer.id;
+  } else {
+    const slot = await consumeGuestSlot();
+    if (!slot.ok) return { error: "Masuk untuk melanjutkan berkomentar" };
+    const limit = await rateLimit(`comment:tamu:${slot.fingerprint}`, { limit: 10, window: 60 });
+    if (!limit.success) return { error: "Ulangi beberapa saat lagi ya" };
+    authorId = slot.authorId;
+  }
 
   const parsed = commentSchema.safeParse(input);
   if (!parsed.success) {
@@ -44,13 +57,13 @@ export async function createCommentAction(input: unknown): Promise<ActionResult>
       content,
       postId,
       parentId: parentId ?? null,
-      authorId: viewer.id,
+      authorId: authorId,
     },
     select: { id: true },
   });
 
   const link = `/post/${postId}`;
-  await notifyMentions({ content, actorId: viewer.id, postId, link });
+  await notifyMentions({ content, actorId: authorId, postId, link });
 
   if (parentId) {
     const parent = await prisma.comment.findUnique({
@@ -60,7 +73,7 @@ export async function createCommentAction(input: unknown): Promise<ActionResult>
     if (parent) {
       await notify({
         userId: parent.authorId,
-        actorId: viewer.id,
+        actorId: authorId,
         type: "REPLY",
         postId,
         commentId: comment.id,
@@ -71,7 +84,7 @@ export async function createCommentAction(input: unknown): Promise<ActionResult>
   } else {
     await notify({
       userId: post.authorId,
-      actorId: viewer.id,
+      actorId: authorId,
       type: "COMMENT",
       postId,
       commentId: comment.id,

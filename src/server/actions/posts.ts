@@ -5,15 +5,29 @@ import { prisma } from "@/lib/prisma";
 import { rateLimit } from "@/lib/rate-limit";
 import { notify, notifyMentions } from "@/lib/notifications";
 import { audit } from "@/lib/audit";
-import { requireViewer, type ActionResult } from "@/lib/rbac";
+import { getViewer, requireViewer, type ActionResult } from "@/lib/rbac";
+import { consumeGuestSlot } from "@/lib/guest-quota";
 import { postSchema } from "@/lib/validations";
 import { slugify } from "@/lib/utils";
 
 export async function createPostAction(input: unknown): Promise<ActionResult> {
-  const viewer = await requireViewer();
+  // Tamu tanpa sesi boleh menulis selama kuota perangkatnya masih tersisa
+  // (lihat lib/guest-quota). Kontribusi ditandatangani penulis bayangan;
+  // kehabisan kuota memicu alur login seperti biasa, tanpa detail kuota.
+  const viewer = await getViewer();
+  let authorId: string | null = null;
 
-  const limit = await rateLimit(`post:user:${viewer.id}`, { limit: 6, window: 3600 });
-  if (!limit.success) return { error: "Batas 6 postingan per jam tercapai" };
+  if (viewer) {
+    const limit = await rateLimit(`post:user:${viewer.id}`, { limit: 6, window: 3600 });
+    if (!limit.success) return { error: "Batas 6 postingan per jam tercapai" };
+    authorId = viewer.id;
+  } else {
+    const slot = await consumeGuestSlot();
+    if (!slot.ok) return { error: "Masuk untuk melanjutkan menulis" };
+    const limit = await rateLimit(`post:tamu:${slot.fingerprint}`, { limit: 6, window: 3600 });
+    if (!limit.success) return { error: "Ulangi beberapa saat lagi ya" };
+    authorId = slot.authorId;
+  }
 
   const parsed = postSchema.safeParse(input);
   if (!parsed.success) {
@@ -46,7 +60,7 @@ export async function createPostAction(input: unknown): Promise<ActionResult> {
       title,
       content,
       images: okImages,
-      author: { connect: { id: viewer.id } },
+      author: { connect: { id: authorId } },
       category: categoryConnect,
       tags: { create: tagIds.map((tagId) => ({ tagId })) },
     },
@@ -55,7 +69,7 @@ export async function createPostAction(input: unknown): Promise<ActionResult> {
 
   await notifyMentions({
     content,
-    actorId: viewer.id,
+    actorId: authorId,
     postId: post.id,
     link: `/post/${post.id}`,
   });

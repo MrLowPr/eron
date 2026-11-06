@@ -5,12 +5,13 @@ import { botTrap } from "@/lib/decoy";
 const AUTH_COOKIES = ["authjs.session-token", "__Secure-authjs.session-token"];
 
 const publicOnly = ["/login", "/register", "/forgot-password", "/admin/login"];
-const needsAuth = ["/settings", "/notifications", "/post/new", "/admin"];
+const needsAuth = ["/settings", "/notifications", "/admin"];
 
 /**
  * Edge middleware:
  * 1. Redirect already-authenticated users away from auth pages.
- * 2. Protect authenticated-only routes (session cookie presence).
+ * 2. Protect authenticated-only routes (session cookie presence). /post/new
+ *    dikecualikan karena tamu dengan sisa kuota (lib/guest-quota) boleh menulis.
  * 3. Guard /admin for ADMIN & MODERATOR (decodes JWT, no DB access on edge).
  */
 export async function middleware(request: NextRequest) {

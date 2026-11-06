@@ -68,6 +68,7 @@ model User {
   resolvedReports         Report[]                 @relation("Resolver")
   auditLogs               AuditLog[]
   emailVerificationTokens EmailVerificationToken[]
+  guestQuota              GuestQuota[]
   passwordResetTokens     PasswordResetToken[]
 
   @@index([createdAt])
@@ -286,4 +287,16 @@ model AuditLog {
 
   @@index([createdAt])
   @@index([userId])
+}
+
+/// Kuota kontribusi anonim per perangkat (fingerprint) — batas kumulatif ditetapkan
+/// kode (GUEST_MAX); baris dibuat otomatis pada kontribusi pertama.
+model GuestQuota {
+  id          String   @id @default(cuid())
+  fingerprint String   @unique
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  used        Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
