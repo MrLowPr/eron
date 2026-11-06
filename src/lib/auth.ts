@@ -7,6 +7,8 @@ import type { PrismaClient } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { loginSchema } from "@/lib/validations";
 import { slugify } from "@/lib/utils";
+import { rateLimit } from "@/lib/rate-limit";
+import { clientIpFromHeaders } from "@/lib/client-ip";
 
 /**
  * Auth.js v5 config.
@@ -28,9 +30,17 @@ export const authConfig = {
     }),
     Credentials({
       credentials: { email: {}, password: {} },
-      authorize: async (credentials) => {
+      authorize: async (credentials, request) => {
         const parsed = loginSchema.safeParse(credentials);
         if (!parsed.success) return null;
+
+        // Batas ini berlaku untuk SEMUA jalur login (server action maupun endpoint /api/auth langsung).
+        const ip = request ? clientIpFromHeaders(request.headers) : "unknown";
+        const [byIp, byEmail] = await Promise.all([
+          rateLimit(`auth:ip:${ip}`, { limit: 30, window: 600 }),
+          rateLimit(`auth:email:${parsed.data.email}`, { limit: 10, window: 600 }),
+        ]);
+        if (!byIp.success || !byEmail.success) return null;
 
         const user = await prisma.user.findUnique({
           where: { email: parsed.data.email },
@@ -82,7 +92,7 @@ export const authConfig = {
         const isOAuth = account?.provider !== "credentials";
 
         if (isOAuth && user.email) {
-          // The adapter may have just created the user — ensure a unique username exists.
+          // The adapter may have just created the user, so ensure a unique username exists.
           const dbUser = await prisma.user.findUnique({
             where: { email: user.email },
             select: { id: true, role: true, username: true },

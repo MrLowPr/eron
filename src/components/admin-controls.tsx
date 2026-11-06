@@ -109,7 +109,7 @@ export function RoleSelect({
   const [pending, setPending] = useState(false);
 
   if (disabled) {
-    return <span className="text-xs text-muted-foreground">—</span>;
+    return <span className="text-xs text-muted-foreground">-</span>;
   }
 
   return (

@@ -51,7 +51,7 @@ export default async function SearchPage({ searchParams }: Props) {
           className="mt-6"
           icon={SearchIcon}
           title="Mulai mencari"
-          description="Ketik kata kunci di atas, misalnya “Next.js” atau nama user tertentu."
+          description="Ketik kata kunci di atas, misalnya “diskusi” atau nama user tertentu."
         />
       ) : (
         <div className="mt-6 space-y-8">

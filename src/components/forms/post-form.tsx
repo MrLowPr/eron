@@ -172,7 +172,7 @@ export function PostForm({
               <SelectValue placeholder="Pilih kategori (opsional)" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="none">— Tanpa kategori —</SelectItem>
+              <SelectItem value="none">Tanpa kategori</SelectItem>
               {categories.map((category) => {
                 const value = category.id;
                 return (

@@ -34,7 +34,7 @@ export default async function CategoryPage({ params, searchParams }: Props) {
   const [category, feed, sidebar] = await Promise.all([
     prisma.category.findUnique({ where: { slug }, select: { id: true, name: true, description: true } }),
     getFeed({ sort, page, viewerId: viewer?.id ?? null, categorySlug: slug }),
-    getSidebarData(),
+    getSidebarData(viewer?.id ?? null),
   ]);
 
   if (!category) {

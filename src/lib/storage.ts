@@ -8,7 +8,7 @@ import { AVATAR_MAX_SIZE } from "@/lib/constants";
 /**
  * Storage abstraction.
  *
- * The app only depends on this interface — switching to Uploadthing or
+ * The app only depends on this interface. Switching to Uploadthing or
  * Cloudflare R2 later is a matter of implementing another driver here.
  */
 

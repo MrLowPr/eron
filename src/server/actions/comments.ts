@@ -17,7 +17,7 @@ export async function createCommentAction(input: unknown): Promise<ActionResult>
   const viewer = await requireViewer();
 
   const limit = await rateLimit(`comment:user:${viewer.id}`, { limit: 10, window: 60 });
-  if (!limit.success) return { error: "Santai — maksimal 10 komentar per menit" };
+  if (!limit.success) return { error: "Santai, maksimal 10 komentar per menit" };
 
   const parsed = commentSchema.safeParse(input);
   if (!parsed.success) {

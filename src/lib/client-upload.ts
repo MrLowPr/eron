@@ -29,6 +29,6 @@ export async function uploadToApi(file: File, folder: "posts" | "avatars"): Prom
     }
     return { ok: true, url: data.url };
   } catch {
-    return { ok: false, error: "Jaringan bermasalah — coba lagi" };
+    return { ok: false, error: "Jaringan bermasalah, coba lagi" };
   }
 }

@@ -27,8 +27,15 @@ type Props = { params: Promise<{ id: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
+  const viewer = await getViewer();
+  const staffViewer = viewer?.role === "ADMIN" || viewer?.role === "MODERATOR";
+  // Sama seperti getPostDetail: konten staff tidak terbaca oleh penonton non-staff.
   const post = await prisma.post.findFirst({
-    where: { id, deletedAt: null },
+    where: {
+      id,
+      deletedAt: null,
+      ...(staffViewer ? {} : { author: { role: { notIn: ["ADMIN", "MODERATOR"] } } }),
+    },
     select: { title: true, content: true, images: true },
   });
   if (!post) return { title: "Postingan tidak ditemukan" };
@@ -52,7 +59,7 @@ export default async function PostDetailPage({ params }: Props) {
   if (!post) notFound();
 
   void headers(); // ensure dynamic rendering (session-dependent)
-  // Not awaited penalizes cold path— do it best-effort:
+  // Not awaited penalizes cold path, so do it best-effort:
   try {
     await incrementViewAction(id);
   } catch {

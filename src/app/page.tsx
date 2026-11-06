@@ -2,7 +2,8 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { PenSquare } from "lucide-react";
 import { getViewer } from "@/lib/rbac";
-import { getFeed, getSidebarData } from "@/server/queries/posts";
+import { getFeed, getSidebarData, getGuestLandingData } from "@/server/queries/posts";
+import { GuestLanding } from "@/components/guest-landing";
 import { SORT_OPTIONS, SITE, type SortType } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,7 +14,7 @@ import { EmptyState } from "@/components/empty-state";
 import { formatNumber } from "@/lib/utils";
 
 export const metadata: Metadata = {
-  title: `${SITE.name} — ${SITE.tagline}`,
+  title: `${SITE.name}: ${SITE.tagline}`,
 };
 
 type Props = {
@@ -32,7 +33,15 @@ export default async function HomePage({ searchParams }: Props) {
   const page = Math.max(1, Number(single(params, "page")) || 1);
 
   const viewer = await getViewer();
-  const [feed, sidebar] = await Promise.all([getFeed({ sort, page, viewerId: viewer?.id ?? null }), getSidebarData()]);
+
+  // ── Halaman tamu: belum login / setelah logout ──────────────────────────
+  // Mockup "Halaman Tamu-html.zip" → komponen data-hidup (member-only).
+  if (!viewer) {
+    const guest = await getGuestLandingData();
+    return <GuestLanding data={guest} />;
+  }
+
+  const [feed, sidebar] = await Promise.all([getFeed({ sort, page, viewerId: viewer.id }), getSidebarData(viewer.id)]);
 
   return (
     <div className="container grid gap-6 py-6 lg:grid-cols-[1fr_280px]">

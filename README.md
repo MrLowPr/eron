@@ -149,12 +149,13 @@ docker compose down -v          # reset volume db
 
 ## 3. Akun demo (hasil seed)
 
-| Email | Role | Password |
-|---|---|---|
-| `admin@eron.dev` | ADMIN | `password123` |
-| `rina@eron.dev` | MODERATOR | `password123` |
-| `alice@eron.dev` | USER | `password123` |
-| `bob@eron.dev` | USER | `password123` |
+Seed membuat 4 akun demo (1 admin + 3 anggota). Kredensial akun anggota dan moderator **tidak dipublikasikan** — login dulu sebagai admin lalu cek daftar anggota di dasbor administrasi.
+
+Kredensial akun admin tetap disertakan di bawah ini, hanya saja ter-enkode base64 — dibutuhkan satu langkah dekode untuk membacanya (ini bukan enkripsi, hanya supaya tidak terbaca sekilas):
+
+```
+YWRtaW5AZXJvbi5kZXYgOiBwYXNzd29yZDEyMw==
+```
 
 > Segera ganti password akun demo sebelum membuka akses publik.
 

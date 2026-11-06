@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import type { Role } from "@prisma/client";
 import type { SortType } from "@/lib/constants";
 
 export type AuthorInfo = {
@@ -7,6 +8,24 @@ export type AuthorInfo = {
   username: string;
   image: string | null;
 };
+
+// ── Visibilitas konten staff ────────────────────────────────────────────────
+// Postingan milik akun ADMIN/MODERATOR dianggap konten internal:
+// disembunyikan dari penonton berperan USER — maupun tamu (tanpa sesi).
+// Staff sendiri tetap memper-lihat semua.
+const STAFF_ROLES: readonly Role[] = ["ADMIN", "MODERATOR"];
+export type StaffRole = (typeof STAFF_ROLES)[number];
+
+export function staffFilter(): { role: { notIn: Role[] } } {
+  return { role: { notIn: [...STAFF_ROLES] } };
+}
+
+/** Benar bila penonton adalah staff (admin/moderator) — dibaca dari DB, bukan token. */
+export async function isStaffViewer(viewerId: string | null): Promise<boolean> {
+  if (!viewerId) return false;
+  const row = await prisma.user.findUnique({ where: { id: viewerId }, select: { role: true } });
+  return row?.role === "ADMIN" || row?.role === "MODERATOR";
+}
 
 export type PostCard = {
   id: string;
@@ -120,6 +139,7 @@ export async function getFeed(options: {
   const skip = (page - 1) * perPage;
 
   const where: Record<string, unknown> = baseWhere();
+  if (!(await isStaffViewer(viewerId))) where.author = staffFilter();
   if (options.categorySlug) where.category = { slug: options.categorySlug };
   if (options.tagSlug) where.tags = { some: { tag: { slug: options.tagSlug } } };
   if (options.q) {
@@ -187,8 +207,14 @@ export type PostDetail = PostCard & {
 };
 
 export async function getPostDetail(id: string, viewerId: string | null): Promise<PostDetail | null> {
+  const staffViewer = await isStaffViewer(viewerId);
   const row = (await prisma.post.findFirst({
-    where: { id, deletedAt: null },
+    where: {
+      id,
+      deletedAt: null,
+      // Postingan staff tidak bisa dibuka lewat tautan langsung oleh penonton non-staff.
+      ...(staffViewer ? {} : { author: staffFilter() }),
+    },
     select: {
       ...rowSelect(viewerId),
       updatedAt: true,
@@ -213,8 +239,13 @@ export async function getPostDetail(id: string, viewerId: string | null): Promis
 
 export async function getRelatedPosts(postId: string, categoryId: string | null, viewerId: string | null) {
   if (!categoryId) return [];
+  const staffViewer = await isStaffViewer(viewerId);
   const rows = (await prisma.post.findMany({
-    where: baseWhere({ categoryId, id: { not: postId } }),
+    where: baseWhere({
+      categoryId,
+      id: { not: postId },
+      ...(staffViewer ? {} : { author: staffFilter() }),
+    }),
     orderBy: { createdAt: "desc" },
     select: rowSelect(viewerId),
     take: 4,
@@ -233,8 +264,14 @@ export async function getBookmarkedPosts(userId: string): Promise<PostCard[]> {
 }
 
 export async function getUserPosts(userId: string, viewerId: string | null): Promise<PostCard[]> {
+  // Profil akun staff tidak memperlihatkan isinya ke penonton non-staff.
+  const staffViewer = await isStaffViewer(viewerId);
   const rows = (await prisma.post.findMany({
-    where: { authorId: userId, deletedAt: null },
+    where: {
+      authorId: userId,
+      deletedAt: null,
+      ...(staffViewer ? {} : { author: staffFilter() }),
+    },
     orderBy: [{ createdAt: "desc" }],
     select: rowSelect(viewerId),
     take: 50,
@@ -309,11 +346,152 @@ export async function getCommentTree(postId: string, viewerId: string | null): P
   return roots;
 }
 
+export type TopCommentItem = {
+  id: string;
+  postId: string;
+  content: string;
+  createdAt: string;
+  likeCount: number;
+  author: { id: string; name: string | null; username: string; image: string | null };
+};
+
+export type HotSpot = {
+  postId: string;
+  /** Urutan kemunculan popup 1..3. */
+  rank: number;
+  title: string;
+  totalComments: number;
+  /** Komentar teratas (maks 3, tampil jelas di popup). */
+  top: TopCommentItem[];
+  /** Beberapa komentar berikutnya (tampil blur di bawah gerbang akun). */
+  blurred: TopCommentItem[];
+};
+
+export type GuestLandingData = {
+  newest: PostCard[];
+  popular: PostCard[];
+  viral: PostCard[];
+  categories: Array<{ name: string; slug: string }>;
+  /** Tiga post terpanas (suara terbanyak) dari 6 post pertama tab Terbaru. */
+  hot: HotSpot[];
+  /** Sama seperti `hot`, tapi untuk tab Populer. */
+  hotPopular: HotSpot[];
+};
+
+/**
+ * Data untuk halaman tamu (pengunjung tanpa sesi / setelah logout).
+ * Semua sumber sudah otomatis menyaring postingan staff (viewer null).
+ */
+export async function getGuestLandingData(): Promise<GuestLandingData> {
+  const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  // baseWhere(extra) menimpa author secara utuh — jadi gabungkan banned + staff-filter di sini.
+  const guestWhere = baseWhere({ author: { banned: false, ...staffFilter() } });
+
+  const [newestRows, popularRows, viralRows, categories] = await Promise.all([
+    prisma.post.findMany({
+      where: guestWhere,
+      orderBy: [{ createdAt: "desc" }],
+      select: rowSelect(null),
+      take: 9,
+    }),
+    prisma.post.findMany({
+      where: guestWhere,
+      orderBy: [
+        { pinned: "desc" as const },
+        { likes: { _count: "desc" as const } },
+        { comments: { _count: "desc" as const } },
+        { viewCount: "desc" as const },
+      ],
+      select: rowSelect(null),
+      take: 9,
+    }),
+    prisma.post.findMany({
+      where: { ...guestWhere, createdAt: { gte: weekAgo } },
+      orderBy: [{ createdAt: "desc" }],
+      select: rowSelect(null),
+      take: 100,
+    }),
+    prisma.category.findMany({ select: { name: true, slug: true }, orderBy: { name: "asc" }, take: 8 }),
+  ]);
+
+  const newest = (newestRows as unknown as Row[]).map((row) => toCard(row, null));
+  const popular = (popularRows as unknown as Row[]).map((row) => toCard(row, null));
+
+  const viral = (viralRows as unknown as Row[])
+    .map((row) => toCard(row, null))
+    .map((card) => ({ card, score: card._count.likes * 2 + card._count.comments * 3 }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 6)
+    .map((entry) => entry.card);
+
+  // Komentar teaser: 3 post terpanas (banyak suara) di setiap tab feed.
+  // Kandidat diambil dari 6 post pertama tiap tab supaya kartu "Terviral"
+  // selalu berada di dalam feed yang ditampilkan (koreografi 24s bisa jalan).
+  const terbaruFeed = newest.slice(0, 6);
+  const populerFeed = popular.slice(0, 6);
+  const hotCandidates = {
+    terbaru: [...terbaruFeed].sort((a, b) => b._count.likes - a._count.likes).slice(0, 3),
+    populer: [...populerFeed].sort((a, b) => b._count.likes - a._count.likes).slice(0, 3),
+  };
+
+  const candidateIds = Array.from(
+    new Set([...hotCandidates.terbaru, ...hotCandidates.populer].map((c) => c.id)),
+  );
+
+  const hotComments = candidateIds.length
+    ? await prisma.comment.findMany({
+        where: { postId: { in: candidateIds }, deletedAt: null },
+        orderBy: [{ likes: { _count: "desc" as const } }, { createdAt: "asc" as const }],
+        take: candidateIds.length * 8,
+        select: {
+          id: true,
+          postId: true,
+          content: true,
+          createdAt: true,
+          author: { select: { id: true, name: true, username: true, image: true } },
+          _count: { select: { likes: true } },
+        },
+      })
+    : [];
+
+  const buildHot = (cards: Row[]): HotSpot[] =>
+    cards.map((card, i) => {
+      const all = hotComments
+        .filter((c) => c.postId === card.id)
+        .map((c) => ({
+          id: c.id,
+          postId: c.postId,
+          content: c.content,
+          createdAt: c.createdAt.toISOString(),
+          likeCount: c._count.likes,
+          author: c.author,
+        }));
+      return {
+        postId: card.id,
+        rank: i + 1,
+        title: card.title,
+        totalComments: card._count.comments,
+        top: all.slice(0, 3),
+        blurred: all.slice(3, 6),
+      };
+    });
+
+  return {
+    newest,
+    popular,
+    viral,
+    categories,
+    hot: buildHot(hotCandidates.terbaru),
+    hotPopular: buildHot(hotCandidates.populer),
+  };
+}
+
 // ── Sidebar & profile & search ───────────────────────────────────────────────
 
-export async function getSidebarData() {
+export async function getSidebarData(viewerId: string | null = null) {
   const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   const monthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const staffViewer = await isStaffViewer(viewerId);
 
   const [categories, weekPosts, monthPosts, commentCount, userCount] = await Promise.all([
     prisma.category.findMany({
@@ -326,12 +504,18 @@ export async function getSidebarData() {
       orderBy: { name: "asc" },
     }),
     prisma.post.findMany({
-      where: { deletedAt: null, createdAt: { gte: weekAgo }, author: { banned: false } },
+      where: {
+        deletedAt: null,
+        createdAt: { gte: weekAgo },
+        author: { banned: false, ...(staffViewer ? {} : staffFilter()) },
+      },
       select: { id: true, title: true, _count: { select: { likes: true, comments: true } } },
       skip: 0,
       take: 100,
     }),
-    prisma.$queryRaw<Array<{ count: bigint }>>`SELECT COUNT(*) as count FROM "Post" WHERE "deletedAt" IS NULL AND "createdAt" >= ${monthAgo.toISOString()}::timestamp`,
+    staffViewer
+      ? prisma.$queryRaw<Array<{ count: bigint }>>`SELECT COUNT(*) as count FROM "Post" WHERE "deletedAt" IS NULL AND "createdAt" >= ${monthAgo.toISOString()}::timestamp`
+      : prisma.$queryRaw<Array<{ count: bigint }>>`SELECT COUNT(*) as count FROM "Post" WHERE "deletedAt" IS NULL AND "createdAt" >= ${monthAgo.toISOString()}::timestamp AND "authorId" IN (SELECT "id" FROM "User" WHERE "role" NOT IN ('ADMIN', 'MODERATOR'))`,
     prisma.comment.count({ where: { deletedAt: null } }),
     prisma.user.count({ where: { banned: false } }),
   ]);

@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Eron database schema — Prisma + PostgreSQL
+// Eron database schema: Prisma + PostgreSQL
 // ─────────────────────────────────────────────────────────────────────────────
 
 generator client {

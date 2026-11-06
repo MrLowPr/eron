@@ -33,7 +33,7 @@ async function main() {
     prisma.user.deleteMany(),
   ]);
 
-  const password = await bcrypt.hash(DEMO_PASSWORD, 10);
+  const password = await bcrypt.hash(DEMO_PASSWORD, 12);
 
   console.info("→ Membuat users…");
   const [admin, rina, alice, bob] = await Promise.all([
@@ -149,7 +149,7 @@ async function main() {
     }),
     prisma.post.create({
       data: {
-        title: "PostgreSQL vs MySQL 2026 — mana yang kamu pilih?",
+        title: "PostgreSQL vs MySQL 2026: mana yang kamu pilih?",
         content:
           "Sudah 3 tahun serius pindah ke PostgreSQL dan belum ada satu hari pun yang bikin saya menyesali.\n\nAlasan favorit saya:\n- Data types yang kaya (jsonb, array, tsvectors)\n- CTE dan window functions\n- Partial indexes\n\nMySQL masih bagus untuk banyak kasus, tapi ekosistem tooling Postgres rasain jauh lebih hidup. Menurut kalian?",
         categoryId: teknologi.id,
@@ -175,7 +175,7 @@ async function main() {
       data: {
         title: "Game indie 2026 yang wajib kamu coba",
         content:
-          "Rekomendasi game indie yang saya mainkan tahun ini:\n\n1. Chrono Drift — puzzle platformer dengan mekanik waktu, soundtrack-nya juara\n2. Paper Kingdom — strategy ringan yang bikin begadang\n3. Hollow Echoes — roguelike dengan atmosfer pixel art terbaik tahun ini\n\nAda rekomendasi lain? Drop di komentar.",
+          "Rekomendasi game indie yang saya mainkan tahun ini:\n\n1. Chrono Drift: puzzle platformer dengan mekanik waktu, soundtrack-nya juara\n2. Paper Kingdom: strategy ringan yang bikin begadang\n3. Hollow Echoes: roguelike dengan atmosfer pixel art terbaik tahun ini\n\nAda rekomendasi lain? Drop di komentar.",
         categoryId: gaming.id,
         tags: { create: [] },
         authorId: bob.id,
@@ -249,7 +249,7 @@ async function main() {
   });
   const c4 = await prisma.comment.create({
     data: {
-      content: "Poin 3 soal router imports — persis. Yang sering kelupaan revalidatePath setelah mutation.",
+      content: "Poin 3 soal router imports, persis. Yang sering kelupaan revalidatePath setelah mutation.",
       postId: nextjsMigration.id,
       authorId: bob.id,
     },
@@ -346,11 +346,10 @@ async function main() {
     },
   });
 
-  console.info("\n✔ Seed selesai! Akun demo:");
-  console.info(`   admin@eron.dev  (ADMIN)     password: ${DEMO_PASSWORD}`);
-  console.info(`   rina@eron.dev   (MODERATOR) password: ${DEMO_PASSWORD}`);
-  console.info(`   alice@eron.dev  (USER)      password: ${DEMO_PASSWORD}`);
-  console.info(`   bob@eron.dev    (USER)      password: ${DEMO_PASSWORD}`);
+  console.info("\n✔ Seed selesai! 4 akun demo dibuat (1 admin + 3 anggota).");
+  console.info("   Kredensial anggota/moderator tidak dipublikasikan.");
+  // Kredensial admin: tampilkan ter-enkode supaya tidak terbaca sekilas.
+  console.info(`   Admin (ter-enkode base64): ${Buffer.from(`admin@eron.dev : ${DEMO_PASSWORD}`).toString("base64")}`);
 }
 
 main()

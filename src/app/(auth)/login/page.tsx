@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { LoginForm } from "@/components/forms/login-form";
 import { GoogleButton } from "@/components/forms/google-button";
 import { Separator } from "@/components/ui/separator";
+import { safeCallbackPath } from "@/lib/safe-redirect";
 
 export const metadata: Metadata = {
   title: "Login",
@@ -24,7 +25,7 @@ export default async function LoginPage({ searchParams }: Props) {
   const params = await searchParams;
 
   const rawCallback = single(params, "callbackUrl");
-  const callbackUrl = rawCallback.startsWith("/") ? rawCallback : "/";
+  const callbackUrl = safeCallbackPath(rawCallback) ?? "/";
   const registered = single(params, "registered") === "1";
   const verified = single(params, "verified") === "1";
   const verifyInvalid = single(params, "verify-invalid") === "1";

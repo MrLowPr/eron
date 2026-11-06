@@ -7,7 +7,7 @@ function redirect(request: NextRequest, path: string, flag?: string) {
   return NextResponse.redirect(url);
 }
 
-/** GET /api/verify-email?token=… — consumes the token, marks email as verified. */
+/** GET /api/verify-email?token=…: consumes the token, marks email as verified. */
 export async function GET(request: NextRequest) {
   const token = request.nextUrl.searchParams.get("token");
   if (!token || token.length < 10) {

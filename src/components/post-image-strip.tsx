@@ -31,7 +31,7 @@ export function PostImageStrip({ images, title }: { images: string[]; title?: st
           >
             <img
               src={src}
-              alt={title ? `${title} — ${index + 1}` : ""}
+              alt={title ? `${title} (${index + 1})` : ""}
               loading="lazy"
               className="h-full w-full object-cover transition-transform group-hover:scale-105"
             />
@@ -48,7 +48,7 @@ export function PostImageStrip({ images, title }: { images: string[]; title?: st
       <Dialog open={openIndex !== null} onOpenChange={(open) => !open && setOpenIndex(null)}>
         <DialogContent className="max-w-3xl p-2 sm:p-3">
           <DialogTitle className="sr-only">
-            {title ? `Gambar — ${title}` : "Gambar"}
+            {title ? `Gambar: ${title}` : "Gambar"}
           </DialogTitle>
           {openIndex !== null && (
             <img
@@ -79,7 +79,7 @@ export function PostGallery({ images, title }: { images: string[]; title: string
           >
             <img
               src={src}
-              alt={`${title} — ${index + 1}`}
+              alt={`${title} (${index + 1})`}
               loading="lazy"
               className="h-full w-full object-cover"
             />

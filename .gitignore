@@ -59,3 +59,5 @@ next-env.d.ts
 /tools/guard/
 # pyc cache
 __pycache__/
+# vault tersegel (kredensial terenkripsi — jangan ikut repo)
+.eron-vault.bin

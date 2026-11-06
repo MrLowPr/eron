@@ -20,7 +20,7 @@ export default async function ResetPasswordPage({
     <Card>
       <CardHeader>
         <CardTitle className="text-xl">Password baru</CardTitle>
-        <CardDescription>Buat password yang kuat — minimal 8 karakter dengan angka.</CardDescription>
+        <CardDescription>Buat password yang kuat, minimal 8 karakter dengan angka.</CardDescription>
       </CardHeader>
       <CardContent>
         {token.length >= 10 && token.length <= 120 ? (

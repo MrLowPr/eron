@@ -5,7 +5,7 @@ import path from "path";
 /**
  * Serves files written to public/uploads at runtime.
  * (Static assets in /public are snapshotted at build time by Next.js, so
- * runtime uploads need this handler — also required for standalone/Docker.)
+ * runtime uploads need this handler, which is also required for standalone/Docker.)
  */
 
 const UPLOAD_ROOT = path.join(process.cwd(), "public", "uploads");

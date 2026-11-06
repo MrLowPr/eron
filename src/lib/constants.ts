@@ -2,7 +2,7 @@ export const SITE = {
   name: "Eron",
   tagline: "Tempat komunitas modern diskusi & berbagi",
   description:
-    "Eron adalah platform komunitas modern — bagikan postingan, diskusi berlapis, vote, bookmark, dan jelajahi topik favoritmu.",
+    "Eron adalah platform komunitas modern. Bagikan postingan, diskusi berlapis, vote, bookmark, dan jelajahi topik favoritmu.",
 } as const;
 
 export const ROLES = ["USER", "MODERATOR", "ADMIN"] as const;
